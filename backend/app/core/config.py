@@ -21,13 +21,16 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: str) -> str:
-        # Railway (and Heroku) provide postgres:// or postgresql:// URLs.
-        # SQLAlchemy's asyncpg dialect requires postgresql+asyncpg://.
-        if isinstance(v, str):
-            if v.startswith("postgres://"):
-                return v.replace("postgres://", "postgresql+asyncpg://", 1)
-            if v.startswith("postgresql://"):
-                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if not isinstance(v, str):
+            return v
+        # Rewrite scheme for asyncpg dialect
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # Railway Postgres requires SSL; skip for local/CI connections
+        if "localhost" not in v and "127.0.0.1" not in v and "ssl=" not in v:
+            v += ("&" if "?" in v else "?") + "ssl=require"
         return v
 
     REDIS_URL: str = "redis://localhost:6379/0"
