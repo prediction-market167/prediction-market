@@ -28,8 +28,8 @@ class Settings(BaseSettings):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
         elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # Railway Postgres requires SSL; skip for local/CI connections
-        if "localhost" not in v and "127.0.0.1" not in v and "ssl=" not in v:
+        # Railway public proxy requires SSL; skip for local/CI and internal Railway connections
+        if "localhost" not in v and "127.0.0.1" not in v and "railway.internal" not in v and "ssl=" not in v:
             v += ("&" if "?" in v else "?") + "ssl=require"
         return v
 
