@@ -13,7 +13,7 @@ build/
 node_modules/
 dist/
 .env.local
-.env.production
+# .env.production is intentionally tracked (contains only public API URL, no secrets)
 
 # Editor
 .vscode/
