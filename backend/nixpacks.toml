@@ -1,0 +1,13 @@
+providers = ["python"]
+
+[phases.setup]
+# gcc + libffi + openssl  →  bcrypt, cryptography, python-jose
+# uvloop + httptools      →  uvicorn[standard]
+# asyncpg                 →  C extension for async Postgres
+nixPkgs = ["python312", "gcc", "libffi", "openssl", "pkg-config"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
