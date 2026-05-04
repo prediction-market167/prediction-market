@@ -23,5 +23,5 @@ sed -e "s|NGINX_PORT|$PORT|g" \\\n\
     > /etc/nginx/conf.d/default.conf\n\
 exec nginx -g "daemon off;"\n' > /start-nginx.sh && chmod +x /start-nginx.sh
 
-EXPOSE 80
+EXPOSE 3000
 CMD ["/bin/sh", "/start-nginx.sh"]
