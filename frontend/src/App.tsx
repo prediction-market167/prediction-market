@@ -7,11 +7,19 @@ import RegisterPage from '@/pages/RegisterPage'
 import MarketsPage from '@/pages/MarketsPage'
 import MarketDetailPage from '@/pages/MarketDetailPage'
 import PortfolioPage from '@/pages/PortfolioPage'
+import AdminPage from '@/pages/AdminPage'
 import Layout from '@/components/common/Layout'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = useAppSelector((s) => s.auth.token)
   return token ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { token, user } = useAppSelector((s) => s.auth)
+  if (!token) return <Navigate to="/login" replace />
+  if (!user?.is_superuser) return <Navigate to="/" replace />
+  return <>{children}</>
 }
 
 export default function App() {
@@ -30,6 +38,14 @@ export default function App() {
               <PrivateRoute>
                 <PortfolioPage />
               </PrivateRoute>
+            }
+          />
+          <Route
+            path="admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
             }
           />
         </Route>

@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/hooks/useStore'
 import { logout } from '@/store/slices/authSlice'
-import { TrendingUp, BarChart2, LogOut, Wallet, Briefcase } from 'lucide-react'
+import { TrendingUp, BarChart2, LogOut, Wallet, Briefcase, ShieldCheck } from 'lucide-react'
 import WalletButton from '@/components/wallet/WalletButton'
 
 export default function Layout() {
@@ -56,6 +56,20 @@ export default function Layout() {
                     <Briefcase className="w-4 h-4" />
                     Portfolio
                   </Link>
+
+                  {user?.is_superuser && (
+                    <Link
+                      to="/admin"
+                      className={`flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-xl transition-all duration-150 ${
+                        isActive('/admin')
+                          ? 'bg-surface-700 text-ink-100'
+                          : 'text-ink-400 hover:text-ink-100 hover:bg-surface-700'
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      Admin
+                    </Link>
+                  )}
 
                   <div className="flex items-center gap-1.5 bg-surface-700 border border-surface-600 px-3 py-1.5 rounded-xl ml-2">
                     <Wallet className="w-3.5 h-3.5 text-brand-cyan" />

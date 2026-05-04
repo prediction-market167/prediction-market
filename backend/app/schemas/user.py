@@ -24,11 +24,18 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserAdminUpdate(BaseModel):
+    is_active: bool | None = None
+    is_superuser: bool | None = None
+    balance: Decimal | None = None
+
+
 class UserResponse(UserBase):
     id: int
     email: str  # override EmailStr — Telegram users get a synthetic non-standard address
     balance: Decimal
     is_active: bool
+    is_superuser: bool
     ton_wallet_address: str | None = None
     created_at: datetime
 

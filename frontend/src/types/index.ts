@@ -5,6 +5,7 @@ export interface User {
   full_name?: string
   balance: number
   is_active: boolean
+  is_superuser: boolean
   ton_wallet_address: string | null
   created_at: string
 }
