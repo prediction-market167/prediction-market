@@ -4,7 +4,7 @@ set -euo pipefail
 COMPOSE="docker compose -f docker/docker-compose.prod.yml"
 
 echo "▶ Pulling latest code..."
-git pull origin main
+git pull origin master
 
 echo "▶ Building images..."
 $COMPOSE build --no-cache
