@@ -1,7 +1,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json .
-RUN npm ci
+
+# Install build tools needed by native Node modules
+RUN apk add --no-cache python3 make g++
+
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
+
 COPY . .
 RUN npm run build
 
