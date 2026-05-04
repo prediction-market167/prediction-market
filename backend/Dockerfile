@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chmod +x start.sh
+# Strip Windows CRLF line endings and make executable
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
-CMD ["sh", "start.sh"]
+CMD ["/bin/sh", "start.sh"]
