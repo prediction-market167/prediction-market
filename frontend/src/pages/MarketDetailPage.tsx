@@ -4,12 +4,13 @@ import { useState, useCallback } from 'react'
 import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
 import { useAppSelector } from '@/hooks/useStore'
-import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star } from 'lucide-react'
+import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy } from 'lucide-react'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 20
+const MIN_PARTICIPANTS = 20
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +26,7 @@ export default function MarketDetailPage() {
   const { data: market, isLoading } = useQuery({
     queryKey: ['market', id],
     queryFn: () => marketsApi.get(Number(id)),
+    refetchInterval: 10_000,
   })
 
   const pollVerify = useCallback(async (payment_id: number) => {
@@ -120,6 +122,10 @@ export default function MarketDetailPage() {
 
   const isBusy = paymentState === 'creating' || paymentState === 'waiting' || paymentState === 'verifying'
 
+  const participantCount = market.participant_count ?? 0
+  const isPoolActive = participantCount >= MIN_PARTICIPANTS
+  const progress = Math.min(participantCount / MIN_PARTICIPANTS, 1)
+
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
       {/* Market info */}
@@ -134,7 +140,7 @@ export default function MarketDetailPage() {
         <h1 className="text-2xl font-black text-ink-100 leading-tight mb-3">{market.title}</h1>
         <p className="text-sm text-ink-400 leading-relaxed mb-8">{market.description}</p>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-end justify-between mb-3">
             <div>
               <p className="text-5xl font-black text-yes tabular-nums">{yesPercent}%</p>
@@ -153,11 +159,54 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
+        {/* Participant count — only shown while market is open */}
+        {market.status === 'open' && (
+          <div className={`mb-6 rounded-xl p-4 border transition-all duration-500 ${
+            isPoolActive
+              ? 'bg-yes/10 border-yes/30'
+              : 'bg-surface-700 border-surface-600'
+          }`}>
+            {isPoolActive ? (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-yes/20 flex items-center justify-center flex-shrink-0">
+                  <Trophy className="w-5 h-5 text-yes" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-yes">Prize pool is now active! 🎉</p>
+                  <p className="text-xs text-ink-400 mt-0.5">{participantCount} participants · winners take the pool</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex justify-between items-center mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-ink-400" />
+                    <span className="text-sm font-semibold text-ink-300">Prize pool progress</span>
+                  </div>
+                  <span className="text-sm font-bold text-ink-100 tabular-nums">
+                    {participantCount}
+                    <span className="text-ink-500 font-normal"> / {MIN_PARTICIPANTS}</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-surface-600 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-brand-cyan transition-all duration-700 ease-out"
+                    style={{ width: `${progress * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-ink-600 mt-2">
+                  {MIN_PARTICIPANTS - participantCount} more {MIN_PARTICIPANTS - participantCount === 1 ? 'participant' : 'participants'} needed · Stars are refunded if goal isn't reached
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: TrendingUp, label: 'Volume', value: `₮${Number(market.total_volume).toLocaleString()}` },
+            { icon: TrendingUp, label: 'Volume', value: `⭐${Number(market.total_volume).toLocaleString()}` },
             { icon: Clock, label: 'Closes', value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-            { icon: Users, label: 'Status', value: market.status.charAt(0).toUpperCase() + market.status.slice(1) },
+            { icon: Users, label: 'Players', value: `${participantCount}${isPoolActive ? ' ✓' : ''}` },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-surface-700 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">

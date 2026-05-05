@@ -24,6 +24,7 @@ export interface Market {
   yes_probability: number
   no_probability: number
   total_volume: number
+  participant_count: number
   close_date: string
   created_at: string
 }

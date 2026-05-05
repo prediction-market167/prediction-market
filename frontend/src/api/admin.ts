@@ -30,6 +30,9 @@ const adminApi = {
   updateMarket: (id: number, payload: MarketUpdatePayload) =>
     apiClient.patch<Market>(`/admin/markets/${id}`, payload).then(r => r.data),
 
+  closeMarket: (id: number) =>
+    apiClient.post<Market>(`/admin/markets/${id}/close`).then(r => r.data),
+
   resolveMarket: (id: number, outcome: MarketOutcome) =>
     apiClient.post<Market>(`/admin/markets/${id}/resolve`, { outcome }).then(r => r.data),
 

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2 } from 'lucide-react'
+import { Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy } from 'lucide-react'
 import adminApi, { MarketCreatePayload } from '@/api/admin'
 import type { Market, MarketOutcome, User } from '@/types'
 
 type Tab = 'markets' | 'users'
+
+const MIN_PARTICIPANTS = 20
 
 const STATUS_BADGE: Record<string, string> = {
   open: 'bg-yes/20 text-yes border-yes/30',
@@ -131,11 +133,24 @@ function ResolveModal({
   )
 }
 
+function ParticipantBadge({ count }: { count: number }) {
+  const active = count >= MIN_PARTICIPANTS
+  return (
+    <div className={`flex items-center gap-1 text-xs font-medium ${active ? 'text-yes' : 'text-ink-500'}`}>
+      {active
+        ? <><Trophy className="w-3 h-3" />{count}</>
+        : <><Users className="w-3 h-3" />{count}/{MIN_PARTICIPANTS}</>
+      }
+    </div>
+  )
+}
+
 function MarketsTab() {
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [editMarket, setEditMarket] = useState<Market | null>(null)
   const [resolveMarket, setResolveMarket] = useState<Market | null>(null)
+  const [closeNotice, setCloseNotice] = useState<string | null>(null)
 
   const { data: markets = [], isLoading } = useQuery({
     queryKey: ['admin', 'markets'],
@@ -153,6 +168,19 @@ function MarketsTab() {
     mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateMarket>[1] }) =>
       adminApi.updateMarket(id, data),
     onSuccess: () => { invalidate(); setEditMarket(null) },
+  })
+
+  const closeMut = useMutation({
+    mutationFn: adminApi.closeMarket,
+    onSuccess: (result) => {
+      invalidate()
+      if (result.status === 'cancelled') {
+        setCloseNotice(
+          `Market auto-cancelled: only ${result.participant_count}/${MIN_PARTICIPANTS} participants. All Stars refunded.`
+        )
+        setTimeout(() => setCloseNotice(null), 6000)
+      }
+    },
   })
 
   const resolveMut = useMutation({
@@ -175,6 +203,12 @@ function MarketsTab() {
         </button>
       </div>
 
+      {closeNotice && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-brand-blue/10 border border-brand-blue/20 text-sm text-brand-blue">
+          {closeNotice}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-center py-12 text-ink-600">Loading...</div>
       ) : (
@@ -182,7 +216,7 @@ function MarketsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-600">
-                {['Title', 'Category', 'Status', 'Volume', 'Close Date', 'Actions'].map(h => (
+                {['Title', 'Category', 'Status', 'Players', 'Volume', 'Close Date', 'Actions'].map(h => (
                   <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
                 ))}
               </tr>
@@ -202,7 +236,10 @@ function MarketsTab() {
                       {m.status}
                     </span>
                   </td>
-                  <td className="py-3 pr-4 text-ink-300">₮{Number(m.total_volume).toLocaleString()}</td>
+                  <td className="py-3 pr-4">
+                    <ParticipantBadge count={m.participant_count} />
+                  </td>
+                  <td className="py-3 pr-4 text-ink-300">⭐{Number(m.total_volume).toLocaleString()}</td>
                   <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">
                     {format(new Date(m.close_date), 'MMM d, yyyy')}
                   </td>
@@ -217,9 +254,10 @@ function MarketsTab() {
                       </button>
                       {m.status === 'open' && (
                         <button
-                          onClick={() => updateMut.mutate({ id: m.id, data: { status: 'closed' } })}
-                          className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors"
-                          title="Close"
+                          onClick={() => closeMut.mutate(m.id)}
+                          disabled={closeMut.isPending}
+                          className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors disabled:opacity-50"
+                          title={`Close (${m.participant_count}/${MIN_PARTICIPANTS} participants)`}
                         >
                           <Clock className="w-3.5 h-3.5" />
                         </button>
@@ -237,7 +275,7 @@ function MarketsTab() {
                         <button
                           onClick={() => cancelMut.mutate(m.id)}
                           className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors"
-                          title="Cancel"
+                          title="Force cancel & refund"
                         >
                           <Ban className="w-3.5 h-3.5" />
                         </button>
@@ -310,7 +348,7 @@ function UsersTab() {
                     <p className="text-ink-100 font-medium">{u.username}</p>
                     <p className="text-xs text-ink-600">{u.email}</p>
                   </td>
-                  <td className="py-3 pr-4 text-ink-300">₮{Number(u.balance).toLocaleString()}</td>
+                  <td className="py-3 pr-4 text-ink-300">⭐{Number(u.balance).toLocaleString()}</td>
                   <td className="py-3 pr-4">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${u.is_active ? 'bg-yes/20 text-yes border-yes/30' : 'bg-no/20 text-no border-no/30'}`}>
                       {u.is_active ? 'Active' : 'Inactive'}

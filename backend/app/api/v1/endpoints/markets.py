@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List
 
 from app.db.session import get_db
 from app.api.v1.deps import get_current_user
 from app.models.user import User
 from app.models.market import Market, MarketStatus
+from app.models.bet import Bet, BetStatus
 from app.schemas.market import MarketCreate, MarketUpdate, MarketResponse, MarketResolve
 
 router = APIRouter()
@@ -49,7 +50,16 @@ async def get_market(market_id: int, db: AsyncSession = Depends(get_db)):
     market = result.scalar_one_or_none()
     if not market:
         raise HTTPException(status_code=404, detail="Market not found")
-    return market
+
+    count_result = await db.execute(
+        select(func.count(func.distinct(Bet.user_id)))
+        .where(Bet.market_id == market_id, Bet.status != BetStatus.CANCELLED)
+    )
+    participant_count = count_result.scalar_one() or 0
+
+    response = MarketResponse.model_validate(market)
+    response.participant_count = participant_count
+    return response
 
 
 @router.patch("/{market_id}", response_model=MarketResponse)
