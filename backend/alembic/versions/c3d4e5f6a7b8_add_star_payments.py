@@ -23,7 +23,7 @@ def upgrade() -> None:
         sa.Column('payload', sa.String(128), unique=True, index=True, nullable=False),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False, index=True),
         sa.Column('market_id', sa.Integer(), sa.ForeignKey('markets.id'), nullable=False),
-        sa.Column('side', sa.Enum('yes', 'no', name='betside'), nullable=False),
+        sa.Column('side', sa.Enum('yes', 'no', name='betside', create_type=False), nullable=False),
         sa.Column('stars_amount', sa.Integer(), nullable=False),
         sa.Column('bet_amount', sa.Numeric(18, 2), nullable=False),
         sa.Column('status', sa.Enum('pending', 'paid', 'failed', name='starpaymentstatus'), nullable=False, server_default='pending'),
