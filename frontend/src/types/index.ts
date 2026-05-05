@@ -76,6 +76,7 @@ declare global {
         ready(): void
         expand(): void
         close(): void
+        openInvoice(url: string, callback?: (status: string) => void): void
       }
     }
   }
