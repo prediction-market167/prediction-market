@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_BOT_USERNAME: str | None = None
-    MINI_APP_URL: str = "https://prediction-market.app"
+    MINI_APP_URL: str = "https://prediction-market-nine-blond.vercel.app"
     WEBHOOK_URL: str | None = None
     TELEGRAM_WEBHOOK_SECRET: str | None = None
 
