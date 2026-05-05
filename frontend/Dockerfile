@@ -1,27 +1,13 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-
 RUN apk add --no-cache python3 make g++
-
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
-
 COPY . .
 RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
-
-# Write startup script with guaranteed LF endings via printf
-RUN printf '#!/bin/sh\n\
-PORT="${PORT:-3000}"\n\
-BACKEND="${BACKEND_URL:-http://localhost:8000}"\n\
-sed -e "s|NGINX_PORT|$PORT|g" \\\n\
-    -e "s|NGINX_BACKEND_URL|$BACKEND|g" \\\n\
-    /etc/nginx/conf.d/default.conf.template \\\n\
-    > /etc/nginx/conf.d/default.conf\n\
-exec nginx -g "daemon off;"\n' > /start-nginx.sh && chmod +x /start-nginx.sh
-
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000
-CMD ["/bin/sh", "/start-nginx.sh"]
+CMD ["/bin/sh", "-c", "sed -i 's|NGINX_BACKEND_URL|'\"$NGINX_BACKEND_URL\"'|g' /etc/nginx/conf.d/default.conf && sed -i 's|listen [0-9]*;|listen 3000;|g' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
