@@ -25,7 +25,7 @@ load_dotenv()
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-MINI_APP_URL = os.environ.get("MINI_APP_URL", "https://prediction-market.app")
+MINI_APP_URL = os.environ.get("MINI_APP_URL", "https://prediction-market-nine-blond.vercel.app")
 WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 
 if not BOT_TOKEN:

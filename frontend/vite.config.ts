@@ -11,7 +11,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    allowedHosts: ['spearman-crunching-cubicle.ngrok-free.dev'],
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
