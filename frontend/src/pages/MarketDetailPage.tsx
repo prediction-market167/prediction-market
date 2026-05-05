@@ -1,10 +1,15 @@
 import { useParams, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback } from 'react'
 import { marketsApi } from '@/api/markets'
-import { betsApi } from '@/api/bets'
+import paymentsApi from '@/api/payments'
 import { useAppSelector } from '@/hooks/useStore'
-import { TrendingUp, Clock, CheckCircle, XCircle, Users } from 'lucide-react'
+import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star } from 'lucide-react'
+
+type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
+
+const POLL_INTERVAL_MS = 1500
+const POLL_MAX_ATTEMPTS = 20
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -13,20 +18,83 @@ export default function MarketDetailPage() {
 
   const [side, setSide] = useState<'yes' | 'no'>('yes')
   const [amount, setAmount] = useState('')
+  const [paymentState, setPaymentState] = useState<PaymentState>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [placedBetId, setPlacedBetId] = useState<number | null>(null)
 
   const { data: market, isLoading } = useQuery({
     queryKey: ['market', id],
     queryFn: () => marketsApi.get(Number(id)),
   })
 
-  const { mutate: placeBet, isPending } = useMutation({
-    mutationFn: () =>
-      betsApi.place({ market_id: Number(id), side, amount: parseFloat(amount) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['market', id] })
-      setAmount('')
-    },
-  })
+  const pollVerify = useCallback(async (payment_id: number) => {
+    setPaymentState('verifying')
+    for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+      try {
+        const result = await paymentsApi.verifyStars(payment_id)
+        if (result.status === 'paid' && result.bet_id) {
+          setPlacedBetId(result.bet_id)
+          setPaymentState('success')
+          queryClient.invalidateQueries({ queryKey: ['market', id] })
+          queryClient.invalidateQueries({ queryKey: ['my-bets'] })
+          return
+        }
+        if (result.status === 'failed') {
+          setErrorMsg('Payment was processed but the bet could not be placed.')
+          setPaymentState('error')
+          return
+        }
+      } catch {
+        // keep polling
+      }
+    }
+    setErrorMsg('Payment verification timed out. Contact support if Stars were deducted.')
+    setPaymentState('error')
+  }, [id, queryClient])
+
+  const handlePlaceBet = useCallback(async () => {
+    const amountNum = parseFloat(amount)
+    if (!amountNum || amountNum <= 0) return
+
+    setErrorMsg('')
+    setPaymentState('creating')
+
+    let invoice: Awaited<ReturnType<typeof paymentsApi.createStarsInvoice>>
+    try {
+      invoice = await paymentsApi.createStarsInvoice(Number(id), side, amountNum)
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.detail ?? 'Failed to create invoice.')
+      setPaymentState('error')
+      return
+    }
+
+    const tgWebApp = window.Telegram?.WebApp
+    if (!tgWebApp?.openInvoice) {
+      setErrorMsg('Telegram Stars payments are only available inside the Telegram app.')
+      setPaymentState('error')
+      return
+    }
+
+    setPaymentState('waiting')
+    tgWebApp.openInvoice(invoice.invoice_url, (status: string) => {
+      if (status === 'paid') {
+        pollVerify(invoice.payment_id)
+      } else if (status === 'cancelled') {
+        setPaymentState('cancelled')
+      } else {
+        setErrorMsg(`Payment ${status}. Please try again.`)
+        setPaymentState('error')
+      }
+    })
+  }, [amount, id, side, pollVerify])
+
+  const resetPayment = () => {
+    setPaymentState('idle')
+    setErrorMsg('')
+    setPlacedBetId(null)
+    setAmount('')
+  }
 
   if (isLoading)
     return (
@@ -47,9 +115,10 @@ export default function MarketDetailPage() {
   const amountNum = parseFloat(amount)
   const prob = side === 'yes' ? market.yes_probability : 1 - market.yes_probability
   const potentialPayout =
-    amount && amountNum > 0 && prob > 0
-      ? (amountNum / prob).toFixed(2)
-      : '—'
+    amount && amountNum > 0 && prob > 0 ? (amountNum / prob).toFixed(2) : '—'
+  const starsNeeded = amount && amountNum > 0 ? Math.ceil(amountNum) : null
+
+  const isBusy = paymentState === 'creating' || paymentState === 'waiting' || paymentState === 'verifying'
 
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
@@ -62,25 +131,18 @@ export default function MarketDetailPage() {
           <span className="text-xs text-ink-600 font-medium">{market.category}</span>
         </div>
 
-        <h1 className="text-2xl font-black text-ink-100 leading-tight mb-3">
-          {market.title}
-        </h1>
+        <h1 className="text-2xl font-black text-ink-100 leading-tight mb-3">{market.title}</h1>
         <p className="text-sm text-ink-400 leading-relaxed mb-8">{market.description}</p>
 
-        {/* Probability */}
         <div className="mb-8">
           <div className="flex items-end justify-between mb-3">
             <div>
               <p className="text-5xl font-black text-yes tabular-nums">{yesPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
-                chance YES
-              </p>
+              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">chance YES</p>
             </div>
             <div className="text-right">
               <p className="text-5xl font-black text-no tabular-nums">{noPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
-                chance NO
-              </p>
+              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">chance NO</p>
             </div>
           </div>
           <div className="h-3 rounded-full bg-no/25 overflow-hidden">
@@ -91,35 +153,16 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
-        {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            {
-              icon: TrendingUp,
-              label: 'Volume',
-              value: `₮${Number(market.total_volume).toLocaleString()}`,
-            },
-            {
-              icon: Clock,
-              label: 'Closes',
-              value: new Date(market.close_date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              }),
-            },
-            {
-              icon: Users,
-              label: 'Status',
-              value: market.status.charAt(0).toUpperCase() + market.status.slice(1),
-            },
+            { icon: TrendingUp, label: 'Volume', value: `₮${Number(market.total_volume).toLocaleString()}` },
+            { icon: Clock, label: 'Closes', value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+            { icon: Users, label: 'Status', value: market.status.charAt(0).toUpperCase() + market.status.slice(1) },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-surface-700 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Icon className="w-3.5 h-3.5 text-ink-600" />
-                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-                  {label}
-                </span>
+                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{label}</span>
               </div>
               <p className="text-sm font-bold text-ink-100">{value}</p>
             </div>
@@ -130,77 +173,121 @@ export default function MarketDetailPage() {
       {/* Betting panel */}
       {token && market.status === 'open' && (
         <div className="card p-6">
-          <h2 className="text-lg font-bold text-ink-100 mb-5">Place a Bet</h2>
-
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <button
-              onClick={() => setSide('yes')}
-              className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 ${
-                side === 'yes'
-                  ? 'bg-yes/15 border-yes text-yes shadow-glow-yes'
-                  : 'border-surface-600 text-ink-400 hover:border-yes/40 hover:text-yes/70 hover:bg-yes/5'
-              }`}
-            >
-              <CheckCircle className="w-4 h-4" />
-              YES · {yesPercent}%
-            </button>
-            <button
-              onClick={() => setSide('no')}
-              className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 ${
-                side === 'no'
-                  ? 'bg-no/15 border-no text-no shadow-glow-no'
-                  : 'border-surface-600 text-ink-400 hover:border-no/40 hover:text-no/70 hover:bg-no/5'
-              }`}
-            >
-              <XCircle className="w-4 h-4" />
-              NO · {noPercent}%
-            </button>
-          </div>
-
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2 block">
-              Amount
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 font-semibold text-sm pointer-events-none">
-                ₮
-              </span>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                min="0"
-                className="input-dark pl-8"
-              />
+          {paymentState === 'success' ? (
+            <div className="text-center py-4">
+              <div className="w-14 h-14 rounded-full bg-yes/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-7 h-7 text-yes" />
+              </div>
+              <h3 className="text-lg font-bold text-ink-100 mb-1">Bet Placed!</h3>
+              <p className="text-sm text-ink-400 mb-1">
+                Bet #{placedBetId} · {side.toUpperCase()} · ₮{amountNum.toFixed(2)}
+              </p>
+              <p className="text-xs text-ink-600 mb-6">Potential payout: ₮{potentialPayout}</p>
+              <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5">
+                Place Another Bet
+              </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-ink-100 mb-5">Place a Bet</h2>
 
-          <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
-            <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-              Potential payout
-            </span>
-            <span className="text-sm font-black text-yes">₮{potentialPayout}</span>
-          </div>
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <button
+                  onClick={() => setSide('yes')}
+                  disabled={isBusy}
+                  className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
+                    side === 'yes'
+                      ? 'bg-yes/15 border-yes text-yes shadow-glow-yes'
+                      : 'border-surface-600 text-ink-400 hover:border-yes/40 hover:text-yes/70 hover:bg-yes/5'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  YES · {yesPercent}%
+                </button>
+                <button
+                  onClick={() => setSide('no')}
+                  disabled={isBusy}
+                  className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
+                    side === 'no'
+                      ? 'bg-no/15 border-no text-no shadow-glow-no'
+                      : 'border-surface-600 text-ink-400 hover:border-no/40 hover:text-no/70 hover:bg-no/5'
+                  }`}
+                >
+                  <XCircle className="w-4 h-4" />
+                  NO · {noPercent}%
+                </button>
+              </div>
 
-          <button
-            onClick={() => placeBet()}
-            disabled={isPending || !amount || amountNum <= 0}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] ${
-              side === 'yes'
-                ? 'bg-yes hover:bg-yes-dark text-white shadow-glow-yes'
-                : 'bg-no hover:bg-no-dark text-white shadow-glow-no'
-            }`}
-          >
-            {isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" />
-                Submitting...
-              </span>
-            ) : (
-              `Buy ${side.toUpperCase()} · ${side === 'yes' ? yesPercent : noPercent}%`
-            )}
-          </button>
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2 block">
+                  Amount
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 font-semibold text-sm pointer-events-none">
+                    ₮
+                  </span>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    min="1"
+                    step="1"
+                    disabled={isBusy}
+                    className="input-dark pl-8"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-surface-700 rounded-xl p-4 mb-2 flex justify-between items-center">
+                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">Potential payout</span>
+                <span className="text-sm font-black text-yes">₮{potentialPayout}</span>
+              </div>
+
+              {starsNeeded && (
+                <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
+                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">Stars required</span>
+                  <span className="text-sm font-bold text-ink-100 flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                    {starsNeeded} ⭐
+                  </span>
+                </div>
+              )}
+
+              {(paymentState === 'error' || paymentState === 'cancelled') && (
+                <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${paymentState === 'cancelled' ? 'bg-surface-600 text-ink-400' : 'bg-no/10 text-no border border-no/20'}`}>
+                  {paymentState === 'cancelled' ? 'Payment cancelled.' : errorMsg}
+                </div>
+              )}
+
+              <button
+                onClick={handlePlaceBet}
+                disabled={isBusy || !amount || amountNum <= 0}
+                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 ${
+                  side === 'yes'
+                    ? 'bg-yes hover:bg-yes-dark text-white shadow-glow-yes'
+                    : 'bg-no hover:bg-no-dark text-white shadow-glow-no'
+                }`}
+              >
+                {paymentState === 'creating' && (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Creating invoice...</>
+                )}
+                {paymentState === 'waiting' && (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Waiting for payment...</>
+                )}
+                {paymentState === 'verifying' && (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Confirming bet...</>
+                )}
+                {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
+                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> Pay {starsNeeded ?? '—'} ⭐ · {side.toUpperCase()}</>
+                )}
+              </button>
+
+              <p className="text-center text-xs text-ink-700 mt-3">
+                Powered by Telegram Stars · 1 ⭐ = 1 credit
+              </p>
+            </>
+          )}
         </div>
       )}
 
