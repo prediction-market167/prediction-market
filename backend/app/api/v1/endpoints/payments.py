@@ -49,8 +49,11 @@ async def create_stars_invoice(
         bet_amount=req.amount,
     )
     db.add(star_payment)
-    await db.flush()
-    await db.refresh(star_payment)
+    try:
+        await db.flush()
+        await db.refresh(star_payment)
+    except Exception as db_err:
+        raise HTTPException(status_code=500, detail=f"DB error creating payment: {db_err}")
 
     try:
         application = get_application()
