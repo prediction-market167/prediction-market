@@ -15,7 +15,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # Write startup script with guaranteed LF endings via printf
 RUN printf '#!/bin/sh\n\
-PORT="${PORT:-80}"\n\
+PORT="${PORT:-3000}"\n\
 BACKEND="${BACKEND_URL:-http://localhost:8000}"\n\
 sed -e "s|NGINX_PORT|$PORT|g" \\\n\
     -e "s|NGINX_BACKEND_URL|$BACKEND|g" \\\n\
