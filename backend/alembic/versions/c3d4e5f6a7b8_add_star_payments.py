@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column('side', sa.Enum('yes', 'no', name='betside', create_type=False), nullable=False),
         sa.Column('stars_amount', sa.Integer(), nullable=False),
         sa.Column('bet_amount', sa.Numeric(18, 2), nullable=False),
-        sa.Column('status', sa.Enum('pending', 'paid', 'failed', name='starpaymentstatus'), nullable=False, server_default='pending'),
+        sa.Column('status', sa.Enum('PENDING', 'PAID', 'FAILED', name='starpaymentstatus'), nullable=False, server_default='PENDING'),
         sa.Column('telegram_charge_id', sa.String(255), nullable=True),
         sa.Column('bet_id', sa.Integer(), sa.ForeignKey('bets.id'), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
