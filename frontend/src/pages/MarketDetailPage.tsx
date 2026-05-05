@@ -180,9 +180,9 @@ export default function MarketDetailPage() {
               </div>
               <h3 className="text-lg font-bold text-ink-100 mb-1">Bet Placed!</h3>
               <p className="text-sm text-ink-400 mb-1">
-                Bet #{placedBetId} · {side.toUpperCase()} · ₮{amountNum.toFixed(2)}
+                Bet #{placedBetId} · {side.toUpperCase()} · {amountNum.toFixed(0)} ⭐
               </p>
-              <p className="text-xs text-ink-600 mb-6">Potential payout: ₮{potentialPayout}</p>
+              <p className="text-xs text-ink-600 mb-6">Potential payout: {potentialPayout} ⭐</p>
               <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5">
                 Place Another Bet
               </button>
@@ -223,14 +223,14 @@ export default function MarketDetailPage() {
                   Amount
                 </label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 font-semibold text-sm pointer-events-none">
-                    ₮
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400 font-semibold text-sm pointer-events-none">
+                    ⭐
                   </span>
                   <input
                     type="number"
                     value={amount}
                     onChange={e => setAmount(e.target.value)}
-                    placeholder="0.00"
+                    placeholder="0"
                     min="1"
                     step="1"
                     disabled={isBusy}
@@ -241,7 +241,7 @@ export default function MarketDetailPage() {
 
               <div className="bg-surface-700 rounded-xl p-4 mb-2 flex justify-between items-center">
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">Potential payout</span>
-                <span className="text-sm font-black text-yes">₮{potentialPayout}</span>
+                <span className="text-sm font-black text-yes">{potentialPayout} ⭐</span>
               </div>
 
               {starsNeeded && (

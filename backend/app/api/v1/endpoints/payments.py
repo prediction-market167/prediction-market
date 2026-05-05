@@ -52,14 +52,18 @@ async def create_stars_invoice(
     await db.flush()
     await db.refresh(star_payment)
 
-    application = get_application()
-    invoice_url = await application.bot.create_invoice_link(
-        title=f"Bet — {market.title[:32]}",
-        description=f"Predict {req.side.value.upper()} on market #{market.id}",
-        payload=payload,
-        currency="XTR",
-        prices=[LabeledPrice("Bet", stars_amount)],
-    )
+    try:
+        application = get_application()
+        invoice_url = await application.bot.create_invoice_link(
+            title=f"Bet — {market.title[:32]}",
+            description=f"Predict {req.side.value.upper()} on market #{market.id}",
+            payload=payload,
+            provider_token="",  # required empty string for Telegram Stars (XTR)
+            currency="XTR",
+            prices=[LabeledPrice("Bet", stars_amount)],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Telegram invoice error: {e}")
 
     return StarsInvoiceResponse(
         payment_id=star_payment.id,
