@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { marketsApi } from '@/api/markets'
 import MarketCard from '@/components/markets/MarketCard'
 import { Search } from 'lucide-react'
 
-const CATEGORIES = ['All', 'Politics', 'Sports', 'Technology', 'Economy', 'Other']
+const CATEGORY_KEYS = ['all', 'politics', 'sports', 'technology', 'economy', 'other'] as const
+type CategoryKey = (typeof CATEGORY_KEYS)[number]
 
 export default function MarketsPage() {
-  const [activeCategory, setActiveCategory] = useState('All')
+  const { t } = useTranslation()
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>('all')
 
   const { data: markets, isLoading } = useQuery({
     queryKey: ['markets'],
@@ -15,37 +18,41 @@ export default function MarketsPage() {
   })
 
   const filtered =
-    activeCategory === 'All'
+    activeCategory === 'all'
       ? markets
-      : markets?.filter((m) => m.category === activeCategory)
+      : markets?.filter((m) => m.category.toLowerCase() === activeCategory)
 
   return (
     <div className="animate-slide-up">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-ink-100">Markets</h1>
+          <h1 className="text-3xl font-black text-ink-100">{t('markets.title')}</h1>
           <p className="text-sm text-ink-600 mt-1">
-            {markets?.length ?? 0} markets available
+            {t('markets.available', { count: markets?.length ?? 0 })}
           </p>
         </div>
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-600 pointer-events-none" />
-          <input className="input-dark pl-10 w-64" placeholder="Search markets..." readOnly />
+          <input
+            className="input-dark pl-10 w-64"
+            placeholder={t('markets.searchPlaceholder')}
+            readOnly
+          />
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-8">
-        {CATEGORIES.map((cat) => (
+        {CATEGORY_KEYS.map((key) => (
           <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
+            key={key}
+            onClick={() => setActiveCategory(key)}
             className={`text-sm font-semibold px-4 py-1.5 rounded-full border transition-all duration-150 ${
-              activeCategory === cat
+              activeCategory === key
                 ? 'bg-gradient-brand text-white border-transparent shadow-glow-cyan'
                 : 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200 bg-surface-800'
             }`}
           >
-            {cat}
+            {t(`markets.categories.${key}`)}
           </button>
         ))}
       </div>
@@ -67,8 +74,8 @@ export default function MarketsPage() {
         </div>
       ) : !filtered?.length ? (
         <div className="text-center py-24">
-          <p className="text-ink-600 text-lg font-semibold">No markets found</p>
-          <p className="text-ink-800 text-sm mt-1">Try selecting a different category</p>
+          <p className="text-ink-600 text-lg font-semibold">{t('markets.empty')}</p>
+          <p className="text-ink-800 text-sm mt-1">{t('markets.emptyHint')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

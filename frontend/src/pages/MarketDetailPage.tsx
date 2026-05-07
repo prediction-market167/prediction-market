@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
 import { useAppSelector } from '@/hooks/useStore'
@@ -13,6 +14,7 @@ const POLL_MAX_ATTEMPTS = 20
 const MIN_PARTICIPANTS = 20
 
 export default function MarketDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const token = useAppSelector((s) => s.auth.token)
@@ -43,7 +45,7 @@ export default function MarketDetailPage() {
           return
         }
         if (result.status === 'failed') {
-          setErrorMsg('Payment was processed but the bet could not be placed.')
+          setErrorMsg(t('market.errors.betFailed'))
           setPaymentState('error')
           return
         }
@@ -51,9 +53,9 @@ export default function MarketDetailPage() {
         // keep polling
       }
     }
-    setErrorMsg('Payment verification timed out. Contact support if Stars were deducted.')
+    setErrorMsg(t('market.errors.timeout'))
     setPaymentState('error')
-  }, [id, queryClient])
+  }, [id, queryClient, t])
 
   const handlePlaceBet = useCallback(async () => {
     const amountNum = parseFloat(amount)
@@ -66,14 +68,14 @@ export default function MarketDetailPage() {
     try {
       invoice = await paymentsApi.createStarsInvoice(Number(id), side, amountNum)
     } catch (e: any) {
-      setErrorMsg(e?.response?.data?.detail ?? 'Failed to create invoice.')
+      setErrorMsg(e?.response?.data?.detail ?? t('market.errors.failedInvoice'))
       setPaymentState('error')
       return
     }
 
     const tgWebApp = window.Telegram?.WebApp
     if (!tgWebApp?.openInvoice) {
-      setErrorMsg('Telegram Stars payments are only available inside the Telegram app.')
+      setErrorMsg(t('market.errors.telegramOnly'))
       setPaymentState('error')
       return
     }
@@ -85,11 +87,11 @@ export default function MarketDetailPage() {
       } else if (status === 'cancelled') {
         setPaymentState('cancelled')
       } else {
-        setErrorMsg(`Payment ${status}. Please try again.`)
+        setErrorMsg(t('market.errors.paymentStatus', { status }))
         setPaymentState('error')
       }
     })
-  }, [amount, id, side, pollVerify])
+  }, [amount, id, side, pollVerify, t])
 
   const resetPayment = () => {
     setPaymentState('idle')
@@ -108,7 +110,7 @@ export default function MarketDetailPage() {
   if (!market)
     return (
       <div className="text-center py-24">
-        <p className="text-no font-semibold">Market not found</p>
+        <p className="text-no font-semibold">{t('market.notFound')}</p>
       </div>
     )
 
@@ -144,11 +146,15 @@ export default function MarketDetailPage() {
           <div className="flex items-end justify-between mb-3">
             <div>
               <p className="text-5xl font-black text-yes tabular-nums">{yesPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">chance YES</p>
+              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
+                {t('market.chanceYes')}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-5xl font-black text-no tabular-nums">{noPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">chance NO</p>
+              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
+                {t('market.chanceNo')}
+              </p>
             </div>
           </div>
           <div className="h-3 rounded-full bg-no/25 overflow-hidden">
@@ -172,8 +178,10 @@ export default function MarketDetailPage() {
                   <Trophy className="w-5 h-5 text-yes" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-yes">Prize pool is now active! 🎉</p>
-                  <p className="text-xs text-ink-400 mt-0.5">{participantCount} participants · winners take the pool</p>
+                  <p className="text-sm font-bold text-yes">{t('market.poolActive')}</p>
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    {t('market.poolParticipants', { count: participantCount })}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -181,7 +189,9 @@ export default function MarketDetailPage() {
                 <div className="flex justify-between items-center mb-2.5">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-ink-400" />
-                    <span className="text-sm font-semibold text-ink-300">Prize pool progress</span>
+                    <span className="text-sm font-semibold text-ink-300">
+                      {t('market.poolProgress')}
+                    </span>
                   </div>
                   <span className="text-sm font-bold text-ink-100 tabular-nums">
                     {participantCount}
@@ -195,7 +205,7 @@ export default function MarketDetailPage() {
                   />
                 </div>
                 <p className="text-xs text-ink-600 mt-2">
-                  {MIN_PARTICIPANTS - participantCount} more {MIN_PARTICIPANTS - participantCount === 1 ? 'participant' : 'participants'} needed · Stars are refunded if goal isn't reached
+                  {t('market.poolNeeded', { count: MIN_PARTICIPANTS - participantCount })}
                 </p>
               </div>
             )}
@@ -204,9 +214,9 @@ export default function MarketDetailPage() {
 
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: TrendingUp, label: 'Volume', value: `⭐${Number(market.total_volume).toLocaleString()}` },
-            { icon: Clock, label: 'Closes', value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-            { icon: Users, label: 'Players', value: `${participantCount}${isPoolActive ? ' ✓' : ''}` },
+            { icon: TrendingUp, label: t('market.volume'), value: `⭐${Number(market.total_volume).toLocaleString()}` },
+            { icon: Clock, label: t('market.closes'), value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+            { icon: Users, label: t('market.players'), value: `${participantCount}${isPoolActive ? ' ✓' : ''}` },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-surface-700 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
@@ -227,18 +237,20 @@ export default function MarketDetailPage() {
               <div className="w-14 h-14 rounded-full bg-yes/20 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-7 h-7 text-yes" />
               </div>
-              <h3 className="text-lg font-bold text-ink-100 mb-1">Bet Placed!</h3>
+              <h3 className="text-lg font-bold text-ink-100 mb-1">{t('market.betPlaced')}</h3>
               <p className="text-sm text-ink-400 mb-1">
-                Bet #{placedBetId} · {side.toUpperCase()} · {amountNum.toFixed(0)} ⭐
+                {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: amountNum.toFixed(0) })}
               </p>
-              <p className="text-xs text-ink-600 mb-6">Potential payout: {potentialPayout} ⭐</p>
+              <p className="text-xs text-ink-600 mb-6">
+                {t('market.potentialPayoutValue', { payout: potentialPayout })}
+              </p>
               <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5">
-                Place Another Bet
+                {t('market.placeAnother')}
               </button>
             </div>
           ) : (
             <>
-              <h2 className="text-lg font-bold text-ink-100 mb-5">Place a Bet</h2>
+              <h2 className="text-lg font-bold text-ink-100 mb-5">{t('market.placeABet')}</h2>
 
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <button
@@ -269,7 +281,7 @@ export default function MarketDetailPage() {
 
               <div className="mb-4">
                 <label className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2 block">
-                  Amount
+                  {t('market.amount')}
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400 font-semibold text-sm pointer-events-none">
@@ -289,13 +301,17 @@ export default function MarketDetailPage() {
               </div>
 
               <div className="bg-surface-700 rounded-xl p-4 mb-2 flex justify-between items-center">
-                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">Potential payout</span>
+                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
+                  {t('market.potentialPayoutLabel')}
+                </span>
                 <span className="text-sm font-black text-yes">{potentialPayout} ⭐</span>
               </div>
 
               {starsNeeded && (
                 <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
-                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">Stars required</span>
+                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
+                    {t('market.starsRequired')}
+                  </span>
                   <span className="text-sm font-bold text-ink-100 flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
                     {starsNeeded} ⭐
@@ -305,7 +321,7 @@ export default function MarketDetailPage() {
 
               {(paymentState === 'error' || paymentState === 'cancelled') && (
                 <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${paymentState === 'cancelled' ? 'bg-surface-600 text-ink-400' : 'bg-no/10 text-no border border-no/20'}`}>
-                  {paymentState === 'cancelled' ? 'Payment cancelled.' : errorMsg}
+                  {paymentState === 'cancelled' ? t('market.paymentCancelled') : errorMsg}
                 </div>
               )}
 
@@ -319,21 +335,21 @@ export default function MarketDetailPage() {
                 }`}
               >
                 {paymentState === 'creating' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Creating invoice...</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
                 )}
                 {paymentState === 'waiting' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Waiting for payment...</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> Confirming bet...</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
-                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> Pay {starsNeeded ?? '—'} ⭐ · {side.toUpperCase()}</>
+                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> {t('market.payButton', { stars: starsNeeded ?? '—', side: side.toUpperCase() })}</>
                 )}
               </button>
 
               <p className="text-center text-xs text-ink-700 mt-3">
-                Powered by Telegram Stars · 1 ⭐ = 1 credit
+                {t('market.poweredBy')}
               </p>
             </>
           )}
@@ -342,9 +358,9 @@ export default function MarketDetailPage() {
 
       {!token && (
         <div className="card border-gradient p-6 text-center">
-          <p className="text-ink-400 mb-4 text-sm">Sign in to trade on this market</p>
+          <p className="text-ink-400 mb-4 text-sm">{t('market.signInToTrade')}</p>
           <Link to="/login" className="btn-primary px-6 py-2.5 shadow-glow-cyan">
-            Log In to Trade
+            {t('market.loginToTrade')}
           </Link>
         </div>
       )}

@@ -1,10 +1,13 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAppDispatch, useAppSelector } from '@/hooks/useStore'
 import { logout } from '@/store/slices/authSlice'
 import { TrendingUp, BarChart2, LogOut, Wallet, Briefcase, ShieldCheck } from 'lucide-react'
 import WalletButton from '@/components/wallet/WalletButton'
+import LanguageSwitcher from './LanguageSwitcher'
 
 export default function Layout() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
@@ -40,7 +43,7 @@ export default function Layout() {
                 }`}
               >
                 <BarChart2 className="w-4 h-4" />
-                Markets
+                {t('nav.markets')}
               </Link>
 
               {token ? (
@@ -54,7 +57,7 @@ export default function Layout() {
                     }`}
                   >
                     <Briefcase className="w-4 h-4" />
-                    Portfolio
+                    {t('nav.portfolio')}
                   </Link>
 
                   {user?.is_superuser && (
@@ -67,7 +70,7 @@ export default function Layout() {
                       }`}
                     >
                       <ShieldCheck className="w-4 h-4" />
-                      Admin
+                      {t('nav.admin')}
                     </Link>
                   )}
 
@@ -80,9 +83,11 @@ export default function Layout() {
 
                   <WalletButton />
 
+                  <LanguageSwitcher />
+
                   <button
                     onClick={handleLogout}
-                    title="Logout"
+                    title={t('nav.logout')}
                     className="p-2 rounded-xl text-ink-600 hover:text-no hover:bg-no/10 transition-all duration-150 ml-1"
                   >
                     <LogOut className="w-4 h-4" />
@@ -90,14 +95,15 @@ export default function Layout() {
                 </>
               ) : (
                 <>
+                  <LanguageSwitcher />
                   <Link
                     to="/login"
                     className="text-sm font-medium px-4 py-2 rounded-xl text-ink-400 hover:text-ink-100 hover:bg-surface-700 transition-all duration-150 ml-2"
                   >
-                    Log In
+                    {t('nav.login')}
                   </Link>
                   <Link to="/register" className="btn-primary text-sm px-5 py-2 ml-1">
-                    Get Started
+                    {t('nav.getStarted')}
                   </Link>
                 </>
               )}
@@ -111,7 +117,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-surface-600 py-6 text-center">
-        <p className="text-xs text-ink-800">© 2026 Manifold · Trade the future</p>
+        <p className="text-xs text-ink-800">{t('nav.footer')}</p>
       </footer>
     </div>
   )

@@ -1,32 +1,35 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { TrendingUp, Zap, Shield, ArrowRight } from 'lucide-react'
 
-const STATS = [
-  { label: 'Active Markets', value: '1,200+' },
-  { label: 'Total Volume', value: '₮48M' },
-  { label: 'Traders', value: '32K' },
-  { label: 'Avg. ROI', value: '+22%' },
-]
-
-const FEATURES = [
-  {
-    icon: TrendingUp,
-    title: 'Real-time Odds',
-    desc: 'Live probability updates as markets move. Always know your edge before you trade.',
-  },
-  {
-    icon: Zap,
-    title: 'Instant Settlement',
-    desc: 'Winnings credited the moment outcomes resolve. Zero delays, zero friction.',
-  },
-  {
-    icon: Shield,
-    title: 'Fully Transparent',
-    desc: 'Every position verifiable. No hidden fees, no manipulation, no surprises.',
-  },
-]
-
 export default function HomePage() {
+  const { t } = useTranslation()
+
+  const STATS = [
+    { label: t('home.stats.activeMarkets'), value: '1,200+' },
+    { label: t('home.stats.totalVolume'), value: '₮48M' },
+    { label: t('home.stats.traders'), value: '32K' },
+    { label: t('home.stats.avgRoi'), value: '+22%' },
+  ]
+
+  const FEATURES = [
+    {
+      icon: TrendingUp,
+      title: t('home.features.realtimeOdds.title'),
+      desc: t('home.features.realtimeOdds.desc'),
+    },
+    {
+      icon: Zap,
+      title: t('home.features.instantSettlement.title'),
+      desc: t('home.features.instantSettlement.desc'),
+    },
+    {
+      icon: Shield,
+      title: t('home.features.transparent.title'),
+      desc: t('home.features.transparent.desc'),
+    },
+  ]
+
   return (
     <div className="animate-fade-in">
       {/* Hero */}
@@ -38,17 +41,17 @@ export default function HomePage() {
 
         <div className="inline-flex items-center gap-2 bg-surface-700 border border-surface-500 text-xs text-brand-cyan font-semibold px-3 py-1.5 rounded-full mb-8">
           <span className="w-1.5 h-1.5 bg-yes rounded-full animate-pulse" />
-          Markets are live
+          {t('home.badge')}
         </div>
 
         <h1 className="text-6xl sm:text-7xl font-black tracking-tight leading-none mb-6">
-          <span className="text-ink-100">Predict.</span>
+          <span className="text-ink-100">{t('home.headline1')}</span>
           <br />
-          <span className="text-gradient">Trade. Win.</span>
+          <span className="text-gradient">{t('home.headline2')}</span>
         </h1>
 
         <p className="text-lg text-ink-400 max-w-md mx-auto mb-10 leading-relaxed">
-          The most accurate prediction market. Trade on politics, sports, crypto, and global events.
+          {t('home.tagline')}
         </p>
 
         <div className="flex items-center justify-center gap-4 flex-wrap">
@@ -56,14 +59,14 @@ export default function HomePage() {
             to="/markets"
             className="btn-primary gap-2 text-base px-7 py-3.5 shadow-glow-cyan"
           >
-            Explore Markets
+            {t('home.exploreMarkets')}
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             to="/register"
             className="flex items-center gap-2 text-sm font-semibold px-7 py-3.5 rounded-xl border border-surface-500 text-ink-200 hover:border-brand-cyan/60 hover:text-brand-cyan transition-all duration-200"
           >
-            Create Account
+            {t('home.createAccount')}
           </Link>
         </div>
       </div>

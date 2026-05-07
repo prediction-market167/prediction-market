@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { betsApi } from '@/api/bets'
 import { authApi } from '@/api/auth'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppDispatch } from '@/hooks/useStore'
 import { setUser } from '@/store/slices/authSlice'
 import { Wallet, TrendingUp, CheckCircle, XCircle, Clock, Ban } from 'lucide-react'
@@ -19,16 +20,6 @@ import {
   Cell,
   Legend,
 } from 'recharts'
-
-const statusConfig: Record<
-  BetStatus,
-  { label: string; textClass: string; bgClass: string; Icon: React.ElementType }
-> = {
-  active: { label: 'Active', textClass: 'text-brand-cyan', bgClass: 'bg-brand-cyan/15', Icon: Clock },
-  won: { label: 'Won', textClass: 'text-yes', bgClass: 'bg-yes/15', Icon: CheckCircle },
-  lost: { label: 'Lost', textClass: 'text-no', bgClass: 'bg-no/15', Icon: XCircle },
-  cancelled: { label: 'Cancelled', textClass: 'text-ink-600', bgClass: 'bg-surface-700', Icon: Ban },
-}
 
 function buildPnlSeries(bets: Bet[]) {
   const sorted = [...bets].sort(
@@ -53,14 +44,14 @@ function buildPnlSeries(bets: Bet[]) {
   })
 }
 
-function buildOutcomePie(bets: Bet[]) {
+function buildOutcomePie(bets: Bet[], labels: Record<BetStatus, string>) {
   const counts: Record<BetStatus, number> = { won: 0, lost: 0, active: 0, cancelled: 0 }
   bets.forEach((b) => counts[b.status]++)
   return [
-    { name: 'Won', value: counts.won, color: '#10b981' },
-    { name: 'Lost', value: counts.lost, color: '#ef4444' },
-    { name: 'Active', value: counts.active, color: '#00c8ff' },
-    { name: 'Cancelled', value: counts.cancelled, color: '#2a3550' },
+    { name: labels.won, value: counts.won, color: '#10b981' },
+    { name: labels.lost, value: counts.lost, color: '#ef4444' },
+    { name: labels.active, value: counts.active, color: '#00c8ff' },
+    { name: labels.cancelled, value: counts.cancelled, color: '#2a3550' },
   ].filter((d) => d.value > 0)
 }
 
@@ -73,6 +64,7 @@ const tooltipStyle = {
 }
 
 export default function PortfolioPage() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: authApi.me })
@@ -85,27 +77,44 @@ export default function PortfolioPage() {
     if (user) dispatch(setUser(user))
   }, [user, dispatch])
 
+  const statusConfig: Record<
+    BetStatus,
+    { label: string; textClass: string; bgClass: string; Icon: React.ElementType }
+  > = {
+    active: { label: t('portfolio.status.active'), textClass: 'text-brand-cyan', bgClass: 'bg-brand-cyan/15', Icon: Clock },
+    won: { label: t('portfolio.status.won'), textClass: 'text-yes', bgClass: 'bg-yes/15', Icon: CheckCircle },
+    lost: { label: t('portfolio.status.lost'), textClass: 'text-no', bgClass: 'bg-no/15', Icon: XCircle },
+    cancelled: { label: t('portfolio.status.cancelled'), textClass: 'text-ink-600', bgClass: 'bg-surface-700', Icon: Ban },
+  }
+
   const wonBets = bets?.filter((b) => b.status === 'won').length ?? 0
   const winRate = bets?.length ? Math.round((wonBets / bets.length) * 100) : 0
   const totalWagered = bets?.reduce((s, b) => s + Number(b.amount), 0) ?? 0
 
   const pnlSeries = bets?.length ? buildPnlSeries(bets) : []
-  const outcomePie = bets?.length ? buildOutcomePie(bets) : []
+  const outcomePie = bets?.length
+    ? buildOutcomePie(bets, {
+        won: t('portfolio.status.won'),
+        lost: t('portfolio.status.lost'),
+        active: t('portfolio.status.active'),
+        cancelled: t('portfolio.status.cancelled'),
+      })
+    : []
   const totalPnl = pnlSeries[pnlSeries.length - 1]?.pnl ?? 0
   const pnlPositive = totalPnl >= 0
 
   return (
     <div className="animate-slide-up">
-      <h1 className="text-3xl font-black text-ink-100 mb-8">Portfolio</h1>
+      <h1 className="text-3xl font-black text-ink-100 mb-8">{t('portfolio.title')}</h1>
 
       {/* Stats */}
       {user && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Balance', value: `₮${Number(user.balance).toLocaleString()}`, Icon: Wallet, color: 'text-brand-cyan' },
-            { label: 'Total Wagered', value: `₮${totalWagered.toLocaleString()}`, Icon: TrendingUp, color: 'text-ink-200' },
-            { label: 'Total Bets', value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
-            { label: 'Win Rate', value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
+            { label: t('portfolio.stats.balance'), value: `₮${Number(user.balance).toLocaleString()}`, Icon: Wallet, color: 'text-brand-cyan' },
+            { label: t('portfolio.stats.totalWagered'), value: `₮${totalWagered.toLocaleString()}`, Icon: TrendingUp, color: 'text-ink-200' },
+            { label: t('portfolio.stats.totalBets'), value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
+            { label: t('portfolio.stats.winRate'), value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
           ].map(({ label, value, Icon, color }) => (
             <div key={label} className="card p-5">
               <div className="flex items-center gap-2 mb-3">
@@ -128,7 +137,7 @@ export default function PortfolioPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
-                  Cumulative P&amp;L
+                  {t('portfolio.pnl')}
                 </p>
                 <p className={`text-2xl font-black ${pnlPositive ? 'text-yes' : 'text-no'}`}>
                   {pnlPositive ? '+' : ''}₮{totalPnl.toFixed(2)}
@@ -141,7 +150,7 @@ export default function PortfolioPage() {
                     : 'bg-no/20 text-no border-no/30'
                 }`}
               >
-                {pnlPositive ? '▲' : '▼'} All time
+                {pnlPositive ? '▲' : '▼'} {t('portfolio.allTime')}
               </span>
             </div>
 
@@ -178,7 +187,7 @@ export default function PortfolioPage() {
                 <Tooltip
                   contentStyle={tooltipStyle}
                   cursor={{ stroke: '#243556', strokeWidth: 1 }}
-                  formatter={(v: number) => [`₮${v.toFixed(2)}`, 'P&L']}
+                  formatter={(v: number) => [`₮${v.toFixed(2)}`, t('portfolio.pnlLabel')]}
                 />
                 <Area
                   type="monotone"
@@ -196,7 +205,7 @@ export default function PortfolioPage() {
           {/* Outcome Donut */}
           <div className="card p-6 flex flex-col">
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-6">
-              Outcomes
+              {t('portfolio.outcomes')}
             </p>
             <div className="flex-1 flex items-center justify-center">
               <ResponsiveContainer width="100%" height={200}>
@@ -235,7 +244,7 @@ export default function PortfolioPage() {
 
       {/* Bet History */}
       <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest mb-4">
-        Bet History
+        {t('portfolio.betHistory')}
       </p>
 
       {isLoading ? (
@@ -247,8 +256,8 @@ export default function PortfolioPage() {
       ) : !bets?.length ? (
         <div className="card p-12 text-center">
           <TrendingUp className="w-12 h-12 text-ink-800 mx-auto mb-4" />
-          <p className="text-ink-400 font-semibold">No bets yet</p>
-          <p className="text-ink-600 text-sm mt-1">Browse markets to start trading</p>
+          <p className="text-ink-400 font-semibold">{t('portfolio.noBets')}</p>
+          <p className="text-ink-600 text-sm mt-1">{t('portfolio.noBetsHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -266,7 +275,7 @@ export default function PortfolioPage() {
                       <span className={bet.side === 'yes' ? 'text-yes' : 'text-no'}>
                         {bet.side.toUpperCase()}
                       </span>{' '}
-                      · Market #{bet.market_id}
+                      · {t('portfolio.marketLabel', { id: bet.market_id })}
                     </p>
                     <p className={`text-xs font-semibold mt-0.5 ${cfg.textClass}`}>{cfg.label}</p>
                   </div>

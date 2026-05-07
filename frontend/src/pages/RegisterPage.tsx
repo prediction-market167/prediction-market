@@ -1,28 +1,58 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useMemo } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '@/api/auth'
 import { TrendingUp } from 'lucide-react'
 
-const schema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  full_name: z.string().optional(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
-type FormData = z.infer<typeof schema>
-
-const FIELDS = [
-  { name: 'email' as const, label: 'Email', type: 'email', placeholder: 'you@example.com' },
-  { name: 'username' as const, label: 'Username', type: 'text', placeholder: 'satoshi' },
-  { name: 'full_name' as const, label: 'Full Name', type: 'text', placeholder: 'Optional' },
-  { name: 'password' as const, label: 'Password', type: 'password', placeholder: '••••••••' },
-]
-
 export default function RegisterPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t('auth.register.errors.email')),
+        username: z.string().min(3, t('auth.register.errors.username')),
+        full_name: z.string().optional(),
+        password: z.string().min(6, t('auth.register.errors.password')),
+      }),
+    [t],
+  )
+  type FormData = z.infer<typeof schema>
+
+  const FIELDS = useMemo(
+    () => [
+      {
+        name: 'email' as const,
+        label: t('auth.register.fields.email.label'),
+        type: 'email',
+        placeholder: t('auth.register.fields.email.placeholder'),
+      },
+      {
+        name: 'username' as const,
+        label: t('auth.register.fields.username.label'),
+        type: 'text',
+        placeholder: t('auth.register.fields.username.placeholder'),
+      },
+      {
+        name: 'full_name' as const,
+        label: t('auth.register.fields.fullName.label'),
+        type: 'text',
+        placeholder: t('auth.register.fields.fullName.placeholder'),
+      },
+      {
+        name: 'password' as const,
+        label: t('auth.register.fields.password.label'),
+        type: 'password',
+        placeholder: t('auth.register.fields.password.placeholder'),
+      },
+    ],
+    [t],
+  )
 
   const {
     register,
@@ -48,8 +78,8 @@ export default function RegisterPage() {
           <div className="w-12 h-12 bg-gradient-brand rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow-cyan">
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-black text-ink-100">Create account</h1>
-          <p className="text-sm text-ink-600 mt-1">Start trading predictions today</p>
+          <h1 className="text-2xl font-black text-ink-100">{t('auth.register.title')}</h1>
+          <p className="text-sm text-ink-600 mt-1">{t('auth.register.subtitle')}</p>
         </div>
 
         <div className="card border-gradient p-6">
@@ -73,7 +103,7 @@ export default function RegisterPage() {
 
             {error && (
               <div className="bg-no/10 border border-no/30 rounded-xl px-4 py-3">
-                <p className="text-xs text-no">Failed to create account. Please try again.</p>
+                <p className="text-xs text-no">{t('auth.register.errors.failed')}</p>
               </div>
             )}
 
@@ -81,22 +111,22 @@ export default function RegisterPage() {
               {isPending ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" />
-                  Creating account...
+                  {t('auth.register.submitting')}
                 </span>
               ) : (
-                'Create Account'
+                t('auth.register.submit')
               )}
             </button>
           </form>
         </div>
 
         <p className="text-sm text-center text-ink-600 mt-6">
-          Already have an account?{' '}
+          {t('auth.register.hasAccount')}{' '}
           <Link
             to="/login"
             className="text-brand-cyan hover:text-white transition-colors font-semibold"
           >
-            Sign in →
+            {t('auth.register.signIn')}
           </Link>
         </p>
       </div>

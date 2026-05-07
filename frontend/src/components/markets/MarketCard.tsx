@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { Market } from '@/types'
 import { TrendingUp, Clock } from 'lucide-react'
 
@@ -6,28 +7,25 @@ interface Props {
   market: Market
 }
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  open: { label: 'LIVE', className: 'bg-yes/20 text-yes border-yes/30' },
-  closed: { label: 'CLOSED', className: 'bg-surface-700 text-ink-400 border-surface-500' },
-  resolved: {
-    label: 'RESOLVED',
-    className: 'bg-brand-blue/20 text-brand-cyan border-brand-cyan/30',
-  },
-  cancelled: {
-    label: 'CANCELLED',
-    className: 'bg-surface-700 text-ink-600 border-surface-600',
-  },
+const statusStyle: Record<string, string> = {
+  open: 'bg-yes/20 text-yes border-yes/30',
+  closed: 'bg-surface-700 text-ink-400 border-surface-500',
+  resolved: 'bg-brand-blue/20 text-brand-cyan border-brand-cyan/30',
+  cancelled: 'bg-surface-700 text-ink-600 border-surface-600',
 }
 
 export default function MarketCard({ market }: Props) {
+  const { t } = useTranslation()
   const yesPercent = Math.round(market.yes_probability * 100)
   const noPercent = 100 - yesPercent
-  const status = statusConfig[market.status] ?? statusConfig.open
+  const style = statusStyle[market.status] ?? statusStyle.open
 
   return (
     <Link to={`/markets/${market.id}`} className="card card-hover block p-5 group h-full">
       <div className="flex items-center justify-between gap-2 mb-4">
-        <span className={`badge border ${status.className}`}>{status.label}</span>
+        <span className={`badge border ${style}`}>
+          {t(`markets.status.${market.status}`)}
+        </span>
         <span className="text-xs text-ink-600 font-medium">{market.category}</span>
       </div>
 

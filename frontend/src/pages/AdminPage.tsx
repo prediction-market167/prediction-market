@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy } from 'lucide-react'
 import adminApi, { MarketCreatePayload } from '@/api/admin'
@@ -25,6 +26,7 @@ function MarketFormModal({
   onClose: () => void
   onSave: (data: MarketCreatePayload) => void
 }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     title: market?.title ?? '',
     description: market?.description ?? '',
@@ -36,11 +38,13 @@ function MarketFormModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="card w-full max-w-lg mx-4">
         <h2 className="text-lg font-bold text-ink-100 mb-5">
-          {market ? 'Edit Market' : 'Create Market'}
+          {market ? t('admin.markets.editTitle') : t('admin.markets.createTitle')}
         </h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">Title</label>
+            <label className="block text-xs font-medium text-ink-400 mb-1">
+              {t('admin.markets.fields.title')}
+            </label>
             <input
               className="input-dark w-full"
               value={form.title}
@@ -48,7 +52,9 @@ function MarketFormModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">Description</label>
+            <label className="block text-xs font-medium text-ink-400 mb-1">
+              {t('admin.markets.fields.description')}
+            </label>
             <textarea
               className="input-dark w-full h-24 resize-none"
               value={form.description}
@@ -57,7 +63,9 @@ function MarketFormModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-ink-400 mb-1">Category</label>
+              <label className="block text-xs font-medium text-ink-400 mb-1">
+                {t('admin.markets.fields.category')}
+              </label>
               <input
                 className="input-dark w-full"
                 value={form.category}
@@ -65,7 +73,9 @@ function MarketFormModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ink-400 mb-1">Close Date</label>
+              <label className="block text-xs font-medium text-ink-400 mb-1">
+                {t('admin.markets.fields.closeDate')}
+              </label>
               <input
                 type="datetime-local"
                 className="input-dark w-full"
@@ -80,13 +90,13 @@ function MarketFormModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors"
           >
-            Cancel
+            {t('admin.markets.cancel')}
           </button>
           <button
             onClick={() => onSave({ ...form, close_date: new Date(form.close_date).toISOString() })}
             className="btn-primary text-sm px-5 py-2"
           >
-            {market ? 'Save' : 'Create'}
+            {market ? t('admin.markets.save') : t('admin.markets.create')}
           </button>
         </div>
       </div>
@@ -103,10 +113,11 @@ function ResolveModal({
   onClose: () => void
   onResolve: (outcome: MarketOutcome) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="card w-full max-w-sm mx-4">
-        <h2 className="text-lg font-bold text-ink-100 mb-2">Resolve Market</h2>
+        <h2 className="text-lg font-bold text-ink-100 mb-2">{t('admin.markets.resolveTitle')}</h2>
         <p className="text-sm text-ink-400 mb-6 line-clamp-2">{market.title}</p>
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -126,7 +137,7 @@ function ResolveModal({
           onClick={onClose}
           className="w-full mt-3 py-2 text-sm text-ink-600 hover:text-ink-400 transition-colors"
         >
-          Cancel
+          {t('admin.markets.cancel')}
         </button>
       </div>
     </div>
@@ -146,6 +157,7 @@ function ParticipantBadge({ count }: { count: number }) {
 }
 
 function MarketsTab() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [editMarket, setEditMarket] = useState<Market | null>(null)
@@ -176,7 +188,10 @@ function MarketsTab() {
       invalidate()
       if (result.status === 'cancelled') {
         setCloseNotice(
-          `Market auto-cancelled: only ${result.participant_count}/${MIN_PARTICIPANTS} participants. All Stars refunded.`
+          t('admin.markets.closeNotice', {
+            count: result.participant_count,
+            min: MIN_PARTICIPANTS,
+          })
         )
         setTimeout(() => setCloseNotice(null), 6000)
       }
@@ -194,12 +209,22 @@ function MarketsTab() {
     onSuccess: invalidate,
   })
 
+  const HEADERS = [
+    t('admin.markets.headers.title'),
+    t('admin.markets.headers.category'),
+    t('admin.markets.headers.status'),
+    t('admin.markets.headers.players'),
+    t('admin.markets.headers.volume'),
+    t('admin.markets.headers.closeDate'),
+    t('admin.markets.headers.actions'),
+  ]
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <p className="text-sm text-ink-400">{markets.length} markets</p>
+        <p className="text-sm text-ink-400">{t('admin.markets.count', { count: markets.length })}</p>
         <button onClick={() => setShowCreate(true)} className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
-          <Plus className="w-4 h-4" /> New Market
+          <Plus className="w-4 h-4" /> {t('admin.markets.newMarket')}
         </button>
       </div>
 
@@ -210,13 +235,13 @@ function MarketsTab() {
       )}
 
       {isLoading ? (
-        <div className="text-center py-12 text-ink-600">Loading...</div>
+        <div className="text-center py-12 text-ink-600">{t('admin.markets.loading')}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-600">
-                {['Title', 'Category', 'Status', 'Players', 'Volume', 'Close Date', 'Actions'].map(h => (
+                {HEADERS.map(h => (
                   <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
                 ))}
               </tr>
@@ -248,7 +273,7 @@ function MarketsTab() {
                       <button
                         onClick={() => setEditMarket(m)}
                         className="p-1.5 rounded-lg text-ink-500 hover:text-ink-100 hover:bg-surface-600 transition-colors"
-                        title="Edit"
+                        title={t('admin.markets.tooltips.edit')}
                       >
                         <BarChart2 className="w-3.5 h-3.5" />
                       </button>
@@ -257,7 +282,7 @@ function MarketsTab() {
                           onClick={() => closeMut.mutate(m.id)}
                           disabled={closeMut.isPending}
                           className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors disabled:opacity-50"
-                          title={`Close (${m.participant_count}/${MIN_PARTICIPANTS} participants)`}
+                          title={t('admin.markets.tooltips.close')}
                         >
                           <Clock className="w-3.5 h-3.5" />
                         </button>
@@ -266,7 +291,7 @@ function MarketsTab() {
                         <button
                           onClick={() => setResolveMarket(m)}
                           className="p-1.5 rounded-lg text-ink-500 hover:text-yes hover:bg-yes/10 transition-colors"
-                          title="Resolve"
+                          title={t('admin.markets.tooltips.resolve')}
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                         </button>
@@ -275,7 +300,7 @@ function MarketsTab() {
                         <button
                           onClick={() => cancelMut.mutate(m.id)}
                           className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors"
-                          title="Force cancel & refund"
+                          title={t('admin.markets.tooltips.forceCancel')}
                         >
                           <Ban className="w-3.5 h-3.5" />
                         </button>
@@ -314,6 +339,7 @@ function MarketsTab() {
 }
 
 function UsersTab() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin', 'users'],
@@ -326,17 +352,26 @@ function UsersTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   })
 
+  const HEADERS = [
+    t('admin.users.headers.user'),
+    t('admin.users.headers.balance'),
+    t('admin.users.headers.active'),
+    t('admin.users.headers.superuser'),
+    t('admin.users.headers.joined'),
+    t('admin.users.headers.actions'),
+  ]
+
   return (
     <div>
-      <p className="text-sm text-ink-400 mb-5">{users.length} users</p>
+      <p className="text-sm text-ink-400 mb-5">{t('admin.users.count', { count: users.length })}</p>
       {isLoading ? (
-        <div className="text-center py-12 text-ink-600">Loading...</div>
+        <div className="text-center py-12 text-ink-600">{t('admin.users.loading')}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-600">
-                {['User', 'Balance', 'Active', 'Superuser', 'Joined', 'Actions'].map(h => (
+                {HEADERS.map(h => (
                   <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
                 ))}
               </tr>
@@ -351,12 +386,12 @@ function UsersTab() {
                   <td className="py-3 pr-4 text-ink-300">⭐{Number(u.balance).toLocaleString()}</td>
                   <td className="py-3 pr-4">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${u.is_active ? 'bg-yes/20 text-yes border-yes/30' : 'bg-no/20 text-no border-no/30'}`}>
-                      {u.is_active ? 'Active' : 'Inactive'}
+                      {u.is_active ? t('admin.users.active') : t('admin.users.inactive')}
                     </span>
                   </td>
                   <td className="py-3 pr-4">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${u.is_superuser ? 'bg-brand-blue/20 text-brand-blue border-brand-blue/30' : 'bg-surface-600 text-ink-600 border-surface-500'}`}>
-                      {u.is_superuser ? 'Admin' : 'User'}
+                      {u.is_superuser ? t('admin.users.admin') : t('admin.users.user')}
                     </span>
                   </td>
                   <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">
@@ -367,14 +402,14 @@ function UsersTab() {
                       <button
                         onClick={() => updateMut.mutate({ id: u.id, data: { is_active: !u.is_active } })}
                         className={`p-1.5 rounded-lg transition-colors ${u.is_active ? 'text-ink-500 hover:text-no hover:bg-no/10' : 'text-ink-500 hover:text-yes hover:bg-yes/10'}`}
-                        title={u.is_active ? 'Deactivate' : 'Activate'}
+                        title={u.is_active ? t('admin.users.tooltips.deactivate') : t('admin.users.tooltips.activate')}
                       >
                         {u.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
                       </button>
                       <button
                         onClick={() => updateMut.mutate({ id: u.id, data: { is_superuser: !u.is_superuser } })}
                         className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors"
-                        title={u.is_superuser ? 'Remove Admin' : 'Make Admin'}
+                        title={u.is_superuser ? t('admin.users.tooltips.removeAdmin') : t('admin.users.tooltips.makeAdmin')}
                       >
                         <Users className="w-3.5 h-3.5" />
                       </button>
@@ -391,23 +426,25 @@ function UsersTab() {
 }
 
 export default function AdminPage() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<Tab>('markets')
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-ink-100 mb-6">Admin Panel</h1>
+      <h1 className="text-2xl font-black text-ink-100 mb-6">{t('admin.title')}</h1>
       <div className="card">
         <div className="flex gap-1 mb-6 border-b border-surface-600 pb-4">
-          {(['markets', 'users'] as Tab[]).map(t => (
+          {(['markets', 'users'] as Tab[]).map(tabKey => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all capitalize ${
-                tab === t ? 'bg-surface-600 text-ink-100' : 'text-ink-500 hover:text-ink-300'
+                tab === tabKey ? 'bg-surface-600 text-ink-100' : 'text-ink-500 hover:text-ink-300'
               }`}
             >
-              {t === 'markets' ? <span className="flex items-center gap-1.5"><BarChart2 className="w-4 h-4" />Markets</span>
-                : <span className="flex items-center gap-1.5"><Users className="w-4 h-4" />Users</span>}
+              {tabKey === 'markets'
+                ? <span className="flex items-center gap-1.5"><BarChart2 className="w-4 h-4" />{t('admin.tabs.markets')}</span>
+                : <span className="flex items-center gap-1.5"><Users className="w-4 h-4" />{t('admin.tabs.users')}</span>}
             </button>
           ))}
         </div>
