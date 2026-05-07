@@ -49,7 +49,7 @@ export default function MarketCard({ market }: Props) {
       <div className="flex items-center justify-between text-xs text-ink-600">
         <div className="flex items-center gap-1">
           <TrendingUp className="w-3 h-3" />
-          <span>₮{Number(market.total_volume).toLocaleString()}</span>
+          <span>${Number(market.total_volume).toLocaleString()}</span>
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />

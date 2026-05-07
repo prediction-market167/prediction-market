@@ -77,7 +77,7 @@ export default function Layout() {
                   <div className="flex items-center gap-1.5 bg-surface-700 border border-surface-600 px-3 py-1.5 rounded-xl ml-2">
                     <Wallet className="w-3.5 h-3.5 text-brand-cyan" />
                     <span className="text-sm font-bold text-ink-100">
-                      ₮{user?.balance?.toLocaleString() ?? '—'}
+                      ${user?.balance?.toLocaleString() ?? '—'}
                     </span>
                   </div>
 

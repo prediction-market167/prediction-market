@@ -89,7 +89,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
 
             <div className="bg-brand-cyan/10 border border-brand-cyan/20 rounded-xl p-3">
               <p className="text-xs text-ink-400 leading-relaxed">
-                Rate: <strong className="text-ink-100">1 TON = ₮{data.amount_per_credit}</strong>
+                Rate: <strong className="text-ink-100">1 TON = ${data.amount_per_credit}</strong>
                 {' '}· Balance updates within ~30 seconds after the transaction confirms.
               </p>
             </div>

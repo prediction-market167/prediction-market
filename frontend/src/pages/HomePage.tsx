@@ -7,7 +7,7 @@ export default function HomePage() {
 
   const STATS = [
     { label: t('home.stats.activeMarkets'), value: '1,200+' },
-    { label: t('home.stats.totalVolume'), value: '₮48M' },
+    { label: t('home.stats.totalVolume'), value: '$48M' },
     { label: t('home.stats.traders'), value: '32K' },
     { label: t('home.stats.avgRoi'), value: '+22%' },
   ]

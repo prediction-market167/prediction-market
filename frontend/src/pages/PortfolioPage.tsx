@@ -111,8 +111,8 @@ export default function PortfolioPage() {
       {user && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: t('portfolio.stats.balance'), value: `₮${Number(user.balance).toLocaleString()}`, Icon: Wallet, color: 'text-brand-cyan' },
-            { label: t('portfolio.stats.totalWagered'), value: `₮${totalWagered.toLocaleString()}`, Icon: TrendingUp, color: 'text-ink-200' },
+            { label: t('portfolio.stats.balance'), value: `$${Number(user.balance).toLocaleString()}`, Icon: Wallet, color: 'text-brand-cyan' },
+            { label: t('portfolio.stats.totalWagered'), value: `$${totalWagered.toLocaleString()}`, Icon: TrendingUp, color: 'text-ink-200' },
             { label: t('portfolio.stats.totalBets'), value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
             { label: t('portfolio.stats.winRate'), value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
           ].map(({ label, value, Icon, color }) => (
@@ -140,7 +140,7 @@ export default function PortfolioPage() {
                   {t('portfolio.pnl')}
                 </p>
                 <p className={`text-2xl font-black ${pnlPositive ? 'text-yes' : 'text-no'}`}>
-                  {pnlPositive ? '+' : ''}₮{totalPnl.toFixed(2)}
+                  {pnlPositive ? '+' : ''}${totalPnl.toFixed(2)}
                 </p>
               </div>
               <span
@@ -182,12 +182,12 @@ export default function PortfolioPage() {
                   tick={{ fill: '#4a5a7a', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `₮${v}`}
+                  tickFormatter={(v) => `$${v}`}
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   cursor={{ stroke: '#243556', strokeWidth: 1 }}
-                  formatter={(v: number) => [`₮${v.toFixed(2)}`, t('portfolio.pnlLabel')]}
+                  formatter={(v: number) => [`$${v.toFixed(2)}`, t('portfolio.pnlLabel')]}
                 />
                 <Area
                   type="monotone"
@@ -282,10 +282,10 @@ export default function PortfolioPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-black text-ink-100">
-                    ₮{Number(bet.amount).toLocaleString()}
+                    ${Number(bet.amount).toLocaleString()}
                   </p>
                   <p className="text-xs text-ink-600 mt-0.5">
-                    → ₮{Number(bet.potential_payout).toFixed(2)}
+                    → ${Number(bet.potential_payout).toFixed(2)}
                   </p>
                 </div>
               </div>
