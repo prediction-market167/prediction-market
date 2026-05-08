@@ -17,18 +17,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Extend TransactionType enum
+    # 1. Extend TransactionType enum (idempotent)
     op.execute("ALTER TYPE transactiontype ADD VALUE IF NOT EXISTS 'referral_bonus'")
     op.execute("ALTER TYPE transactiontype ADD VALUE IF NOT EXISTS 'jackpot'")
     op.execute("ALTER TYPE transactiontype ADD VALUE IF NOT EXISTS 'monthly_bonus'")
 
-    # 2. Create tickettier enum
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE tickettier AS ENUM ('easy', 'medium', 'hard');
-        EXCEPTION WHEN duplicate_object THEN null;
-        END $$
-    """)
+    # 2. Create tickettier enum (idempotent via DO block)
+    op.execute("DO $$ BEGIN CREATE TYPE tickettier AS ENUM ('easy', 'medium', 'hard'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
 
     # 3. Add referral columns to users
     op.add_column('users', sa.Column('referral_code', sa.String(16), nullable=True))
@@ -37,7 +32,7 @@ def upgrade() -> None:
 
     op.create_index('ix_users_referral_code', 'users', ['referral_code'], unique=True)
 
-    # 4. Backfill referral_code for existing users (avoid duplicate constraint issues — use id-based codes)
+    # 4. Backfill referral_code for existing users (id-based to avoid duplicate constraint)
     op.execute("""
         UPDATE users SET referral_code = CONCAT('u', id::text, LEFT(MD5(id::text), 6))
         WHERE referral_code IS NULL
@@ -54,12 +49,13 @@ def upgrade() -> None:
     )
     op.execute("INSERT INTO system_funds (id, jackpot_balance, monthly_bonus_balance) VALUES (1, 0, 0)")
 
-    # 6. Create referral_tickets table
+    # 6. Create referral_tickets table — use sa.String for tier to avoid SQLAlchemy
+    #    trying to re-create the tickettier enum type we just created via raw SQL above
     op.create_table(
         'referral_tickets',
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False, index=True),
-        sa.Column('tier', sa.Enum('easy', 'medium', 'hard', name='tickettier', create_type=False), nullable=False),
+        sa.Column('tier', sa.String(10), nullable=False),
         sa.Column('is_used', sa.Boolean(), nullable=False, server_default='false'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
