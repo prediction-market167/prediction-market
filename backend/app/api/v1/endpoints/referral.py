@@ -88,7 +88,14 @@ async def get_referral_info(
             break
 
     code = current_user.referral_code or ""
-    link = f"{settings.MINI_APP_URL}?startapp=ref_{code}" if code else settings.MINI_APP_URL
+    bot_username = settings.TELEGRAM_BOT_USERNAME or ""
+    tg_id = current_user.telegram_id
+    if tg_id and bot_username:
+        link = f"https://t.me/{bot_username}?start=ref_{tg_id}"
+    elif code:
+        link = f"{settings.MINI_APP_URL}?startapp=ref_{code}"
+    else:
+        link = settings.MINI_APP_URL
 
     return ReferralInfoOut(
         referral_code=current_user.referral_code,

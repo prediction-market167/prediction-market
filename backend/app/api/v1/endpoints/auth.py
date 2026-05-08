@@ -19,10 +19,15 @@ def _make_referral_code() -> str:
     return secrets.token_urlsafe(8)[:10]
 
 
-async def _resolve_referrer(ref_code: str | None, db: AsyncSession) -> int | None:
-    if not ref_code:
+async def _resolve_referrer(ref: str | None, db: AsyncSession) -> int | None:
+    if not ref:
         return None
-    res = await db.execute(select(User).where(User.referral_code == ref_code))
+    # ref is now a telegram_id (from deep link ref_{telegram_id})
+    try:
+        tg_id = int(ref)
+        res = await db.execute(select(User).where(User.telegram_id == tg_id))
+    except (ValueError, TypeError):
+        res = await db.execute(select(User).where(User.referral_code == ref))
     referrer = res.scalar_one_or_none()
     return referrer.id if referrer else None
 

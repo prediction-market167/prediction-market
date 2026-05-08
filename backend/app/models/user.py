@@ -14,7 +14,7 @@ class User(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(100))
     ton_wallet_address: Mapped[str | None] = mapped_column(String(66), unique=True, index=True, nullable=True)
-    balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("1000.00"))
+    balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
