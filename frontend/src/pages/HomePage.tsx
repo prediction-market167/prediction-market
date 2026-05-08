@@ -1,35 +1,32 @@
 import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { TrendingUp, Zap, Shield, ArrowRight } from 'lucide-react'
+import { Zap, Shield, ArrowRight, Brain } from 'lucide-react'
+
+const STATS = [
+  { label: 'Active Contests', value: '1,200+' },
+  { label: 'Total Prizes', value: '$48M' },
+  { label: 'Players', value: '32K' },
+  { label: 'Avg. Win Rate', value: '+22%' },
+]
+
+const FEATURES = [
+  {
+    icon: Brain,
+    title: 'Test Your Knowledge',
+    desc: 'Compete on real-world events across politics, sports, crypto, and more. The sharper your instincts, the bigger your rewards.',
+  },
+  {
+    icon: Zap,
+    title: 'Instant Results',
+    desc: 'Prizes credited the moment contests resolve. No waiting, no friction — just win and collect.',
+  },
+  {
+    icon: Shield,
+    title: 'Fair & Transparent',
+    desc: 'Every contest is verifiable on-chain. No hidden fees, no manipulation, no surprises.',
+  },
+]
 
 export default function HomePage() {
-  const { t } = useTranslation()
-
-  const STATS = [
-    { label: t('home.stats.activeMarkets'), value: '1,200+' },
-    { label: t('home.stats.totalVolume'), value: '$48M' },
-    { label: t('home.stats.traders'), value: '32K' },
-    { label: t('home.stats.avgRoi'), value: '+22%' },
-  ]
-
-  const FEATURES = [
-    {
-      icon: TrendingUp,
-      title: t('home.features.realtimeOdds.title'),
-      desc: t('home.features.realtimeOdds.desc'),
-    },
-    {
-      icon: Zap,
-      title: t('home.features.instantSettlement.title'),
-      desc: t('home.features.instantSettlement.desc'),
-    },
-    {
-      icon: Shield,
-      title: t('home.features.transparent.title'),
-      desc: t('home.features.transparent.desc'),
-    },
-  ]
-
   return (
     <div className="animate-fade-in">
       {/* Hero */}
@@ -41,34 +38,26 @@ export default function HomePage() {
 
         <div className="inline-flex items-center gap-2 bg-surface-700 border border-surface-500 text-xs text-brand-cyan font-semibold px-3 py-1.5 rounded-full mb-8">
           <span className="w-1.5 h-1.5 bg-yes rounded-full animate-pulse" />
-          {t('home.badge')}
+          Contests are live
         </div>
 
         <h1 className="text-6xl sm:text-7xl font-black tracking-tight leading-none mb-6">
-          <span className="text-ink-100">{t('home.headline1')}</span>
+          <span className="text-ink-100">Predict.</span>
           <br />
-          <span className="text-gradient">{t('home.headline2')}</span>
+          <span className="text-gradient">Compete. Win.</span>
         </h1>
 
         <p className="text-lg text-ink-400 max-w-md mx-auto mb-10 leading-relaxed">
-          {t('home.tagline')}
+          The ultimate quiz competition platform. Answer questions, outsmart the crowd, and take home real prizes.
         </p>
 
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            to="/markets"
-            className="btn-primary gap-2 text-base px-7 py-3.5 shadow-glow-cyan"
-          >
-            {t('home.exploreMarkets')}
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            to="/register"
-            className="flex items-center gap-2 text-sm font-semibold px-7 py-3.5 rounded-xl border border-surface-500 text-ink-200 hover:border-brand-cyan/60 hover:text-brand-cyan transition-all duration-200"
-          >
-            {t('home.createAccount')}
-          </Link>
-        </div>
+        <Link
+          to="/markets"
+          className="btn-primary gap-2 text-base px-7 py-3.5 shadow-glow-cyan"
+        >
+          Join Contest
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {/* Stats */}
