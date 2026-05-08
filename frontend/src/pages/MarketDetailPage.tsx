@@ -1,12 +1,16 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
 import { useAppSelector } from '@/hooks/useStore'
-import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy, Wallet } from 'lucide-react'
+import {
+  TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy, Wallet,
+  Eye, EyeOff, Loader2
+} from 'lucide-react'
+import type { BetSide } from '@/types'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
 
@@ -14,6 +18,18 @@ const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 20
 const MIN_PARTICIPANTS = 20
 const BET_AMOUNT = 100
+
+const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']
+
+// Option style by index
+const OPTION_COLORS = [
+  { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-emerald-500/40 hover:text-emerald-400/70' },
+  { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-rose-500/40 hover:text-rose-400/70' },
+  { active: 'bg-brand-purple/15 border-brand-purple text-brand-purple', inactive: 'border-surface-600 text-ink-400 hover:border-brand-purple/40' },
+  { active: 'bg-amber-500/15 border-amber-500 text-amber-400', inactive: 'border-surface-600 text-ink-400 hover:border-amber-500/40' },
+]
+
+const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
 function TonIcon({ className }: { className?: string }) {
   return (
@@ -25,14 +41,14 @@ function TonIcon({ className }: { className?: string }) {
 }
 
 export default function MarketDetailPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const token = useAppSelector((s) => s.auth.token)
   const walletAddress = useTonAddress()
   const [tonConnectUI] = useTonConnectUI()
 
-  const [side, setSide] = useState<'yes' | 'no'>('yes')
+  const [selectedOption, setSelectedOption] = useState<number>(0)
   const [paymentState, setPaymentState] = useState<PaymentState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [placedBetId, setPlacedBetId] = useState<number | null>(null)
@@ -42,6 +58,25 @@ export default function MarketDetailPage() {
     queryFn: () => marketsApi.get(Number(id)),
     refetchInterval: 10_000,
   })
+
+  const isQuiz = !!market?.tier
+  const isDarkPool = isQuiz && market?.status === 'open' && !market?.is_revealed
+
+  // Get options in current language
+  const lang = i18n.language.split('-')[0]
+  const localizedOptions = useMemo(() => {
+    if (!market?.options) return null
+    const opts = market.options
+    return (lang === 'en' ? opts.en : lang === 'ru' ? opts.ru : lang === 'hi' ? opts.hi : opts.mn) || opts.mn
+  }, [market?.options, lang])
+
+  const localizedTitle = useMemo(() => {
+    if (!market) return ''
+    if (!isQuiz) return market.title
+    return (lang === 'en' ? market.title_en : lang === 'ru' ? market.title_ru : lang === 'hi' ? market.title_hi : market.title) || market.title
+  }, [market, isQuiz, lang])
+
+  const side = OPTION_TO_SIDE[selectedOption] ?? 'yes'
 
   const pollVerify = useCallback(async (payment_id: number) => {
     setPaymentState('verifying')
@@ -61,9 +96,7 @@ export default function MarketDetailPage() {
           setPaymentState('error')
           return
         }
-      } catch {
-        // keep polling
-      }
+      } catch { /* keep polling */ }
     }
     setErrorMsg(t('market.errors.timeout'))
     setPaymentState('error')
@@ -124,9 +157,6 @@ export default function MarketDetailPage() {
 
   const yesPercent = Math.round(market.yes_probability * 100)
   const noPercent = 100 - yesPercent
-  const prob = side === 'yes' ? market.yes_probability : 1 - market.yes_probability
-  const potentialPayout = prob > 0 ? (BET_AMOUNT / prob).toFixed(2) : '—'
-
   const isBusy = paymentState === 'creating' || paymentState === 'waiting' || paymentState === 'verifying'
 
   const participantCount = market.participant_count ?? 0
@@ -141,41 +171,88 @@ export default function MarketDetailPage() {
           <span className="badge bg-yes/20 text-yes border border-yes/30">
             {market.status.toUpperCase()}
           </span>
+          {market.tier && (
+            <span className="badge bg-surface-700 text-ink-400 border border-surface-600">
+              {market.tier.toUpperCase()}
+            </span>
+          )}
           <span className="text-xs text-ink-600 font-medium">{market.category}</span>
         </div>
 
-        <h1 className="text-2xl font-black text-ink-100 leading-tight mb-3">{market.title}</h1>
-        <p className="text-sm text-ink-400 leading-relaxed mb-8">{market.description}</p>
+        <h1 className="text-2xl font-black text-ink-100 leading-tight mb-3">{localizedTitle}</h1>
+        {market.description && (
+          <p className="text-sm text-ink-400 leading-relaxed mb-6">{market.description}</p>
+        )}
 
-        <div className="mb-6">
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-5xl font-black text-yes tabular-nums">{yesPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
-                {t('market.chanceYes')}
-              </p>
+        {/* Dark pool or probability display */}
+        {isDarkPool ? (
+          <div className="mb-6 rounded-xl p-5 bg-surface-700 border border-surface-600">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-surface-600 flex items-center justify-center flex-shrink-0">
+                <EyeOff className="w-5 h-5 text-ink-500" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-ink-200">{t('game.darkPool')}</p>
+                <p className="text-xs text-ink-500 mt-0.5">{t('game.darkPoolHint')}</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-5xl font-black text-no tabular-nums">{noPercent}%</p>
-              <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
-                {t('market.chanceNo')}
-              </p>
+            <div className="h-2 rounded-full bg-surface-600 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-surface-500 to-surface-400 animate-pulse" style={{ width: '50%' }} />
+            </div>
+            <div className={`mt-3 flex items-center gap-2 text-xs font-semibold ${
+              market.pool_status === 'threshold_met' ? 'text-emerald-400' : 'text-amber-400'
+            }`}>
+              {market.pool_status === 'threshold_met' ? (
+                <><CheckCircle className="w-3.5 h-3.5" />{t('game.thresholdMet')}</>
+              ) : (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t('game.gathering')}</>
+              )}
             </div>
           </div>
-          <div className="h-3 rounded-full bg-no/25 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-yes transition-all duration-700 ease-out"
-              style={{ width: `${yesPercent}%` }}
-            />
-          </div>
-        </div>
+        ) : (
+          !isQuiz && (
+            <div className="mb-6">
+              <div className="flex items-end justify-between mb-3">
+                <div>
+                  <p className="text-5xl font-black text-yes tabular-nums">{yesPercent}%</p>
+                  <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
+                    {t('market.chanceYes')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-5xl font-black text-no tabular-nums">{noPercent}%</p>
+                  <p className="text-xs text-ink-600 font-semibold uppercase tracking-wider mt-1">
+                    {t('market.chanceNo')}
+                  </p>
+                </div>
+              </div>
+              <div className="h-3 rounded-full bg-no/25 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-yes transition-all duration-700 ease-out"
+                  style={{ width: `${yesPercent}%` }}
+                />
+              </div>
+            </div>
+          )
+        )}
 
-        {/* Participant count — only shown while market is open */}
-        {market.status === 'open' && (
+        {/* Revealed quiz result */}
+        {isQuiz && market.is_revealed && market.correct_option_idx != null && localizedOptions && (
+          <div className="mb-6 rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Eye className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-bold text-emerald-400">{t('game.correctAnswer')}</span>
+            </div>
+            <p className="text-base font-black text-ink-100">
+              {OPTION_LABELS[market.correct_option_idx]}. {localizedOptions[market.correct_option_idx]}
+            </p>
+          </div>
+        )}
+
+        {/* Participant pool status — only when not in dark pool */}
+        {market.status === 'open' && !isDarkPool && (
           <div className={`mb-6 rounded-xl p-4 border transition-all duration-500 ${
-            isPoolActive
-              ? 'bg-yes/10 border-yes/30'
-              : 'bg-surface-700 border-surface-600'
+            isPoolActive ? 'bg-yes/10 border-yes/30' : 'bg-surface-700 border-surface-600'
           }`}>
             {isPoolActive ? (
               <div className="flex items-center gap-3">
@@ -194,20 +271,14 @@ export default function MarketDetailPage() {
                 <div className="flex justify-between items-center mb-2.5">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-ink-400" />
-                    <span className="text-sm font-semibold text-ink-300">
-                      {t('market.poolProgress')}
-                    </span>
+                    <span className="text-sm font-semibold text-ink-300">{t('market.poolProgress')}</span>
                   </div>
                   <span className="text-sm font-bold text-ink-100 tabular-nums">
-                    {participantCount}
-                    <span className="text-ink-500 font-normal"> / {MIN_PARTICIPANTS}</span>
+                    {participantCount}<span className="text-ink-500 font-normal"> / {MIN_PARTICIPANTS}</span>
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-surface-600 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-brand-cyan transition-all duration-700 ease-out"
-                    style={{ width: `${progress * 100}%` }}
-                  />
+                  <div className="h-full rounded-full bg-brand-cyan transition-all duration-700 ease-out" style={{ width: `${progress * 100}%` }} />
                 </div>
                 <p className="text-xs text-ink-600 mt-2">
                   {t('market.poolNeeded', { count: MIN_PARTICIPANTS - participantCount })}
@@ -221,7 +292,7 @@ export default function MarketDetailPage() {
           {[
             { icon: TrendingUp, label: t('market.volume'), value: `⭐${Number(market.total_volume).toLocaleString()}` },
             { icon: Clock, label: t('market.closes'), value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-            { icon: Users, label: t('market.players'), value: `${participantCount}${isPoolActive ? ' ✓' : ''}` },
+            { icon: Users, label: t('market.players'), value: isDarkPool ? '—' : `${participantCount}${isPoolActive ? ' ✓' : ''}` },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-surface-700 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
@@ -250,16 +321,14 @@ export default function MarketDetailPage() {
           <div className="w-12 h-12 rounded-full bg-brand-cyan/15 flex items-center justify-center mx-auto mb-4">
             <TonIcon className="w-6 h-6 text-brand-cyan" />
           </div>
-          <h3 className="text-base font-bold text-ink-100 mb-1">Connect TON Wallet to Bet</h3>
-          <p className="text-sm text-ink-400 mb-5">
-            A connected TON wallet is required to place bets. Stars are backed by real TON payments.
-          </p>
+          <h3 className="text-base font-bold text-ink-100 mb-1">{t('market.connectWalletTitle')}</h3>
+          <p className="text-sm text-ink-400 mb-5">{t('market.connectWalletDesc')}</p>
           <button
             onClick={() => tonConnectUI.openModal()}
             className="btn-primary px-6 py-2.5 shadow-glow-cyan flex items-center gap-2 mx-auto"
           >
             <TonIcon className="w-4 h-4" />
-            Connect TON Wallet
+            {t('market.connectWalletBtn')}
           </button>
         </div>
       )}
@@ -276,67 +345,91 @@ export default function MarketDetailPage() {
               <p className="text-sm text-ink-400 mb-1">
                 {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: BET_AMOUNT })}
               </p>
-              <p className="text-xs text-ink-600 mb-6">
-                {t('market.potentialPayoutValue', { payout: potentialPayout })}
-              </p>
-              <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5">
+              <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5 mt-4">
                 {t('market.placeAnother')}
               </button>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-ink-100">{t('market.placeABet')}</h2>
+                <h2 className="text-lg font-bold text-ink-100">
+                  {isQuiz ? t('game.pickAnswer') : t('market.placeABet')}
+                </h2>
                 <div className="flex items-center gap-1.5 text-xs text-ink-600">
                   <Wallet className="w-3 h-3 text-brand-cyan" />
                   <span className="font-mono text-brand-cyan">{walletAddress.slice(0, 4)}…{walletAddress.slice(-4)}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <button
-                  onClick={() => setSide('yes')}
-                  disabled={isBusy}
-                  className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
-                    side === 'yes'
-                      ? 'bg-yes/15 border-yes text-yes shadow-glow-yes'
-                      : 'border-surface-600 text-ink-400 hover:border-yes/40 hover:text-yes/70 hover:bg-yes/5'
-                  }`}
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  YES · {yesPercent}%
-                </button>
-                <button
-                  onClick={() => setSide('no')}
-                  disabled={isBusy}
-                  className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
-                    side === 'no'
-                      ? 'bg-no/15 border-no text-no shadow-glow-no'
-                      : 'border-surface-600 text-ink-400 hover:border-no/40 hover:text-no/70 hover:bg-no/5'
-                  }`}
-                >
-                  <XCircle className="w-4 h-4" />
-                  NO · {noPercent}%
-                </button>
-              </div>
+              {/* Quiz option buttons OR yes/no buttons */}
+              {isQuiz && localizedOptions ? (
+                <div className="grid gap-2.5 mb-5">
+                  {localizedOptions.map((opt, idx) => {
+                    const colors = OPTION_COLORS[idx] ?? OPTION_COLORS[0]
+                    const isSelected = selectedOption === idx
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedOption(idx)}
+                        disabled={isBusy}
+                        className={`flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-sm border-2 transition-all duration-150 disabled:opacity-50 text-left ${
+                          isSelected ? colors.active : colors.inactive
+                        }`}
+                      >
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${
+                          isSelected ? 'bg-white/20' : 'bg-surface-700'
+                        }`}>
+                          {OPTION_LABELS[idx]}
+                        </span>
+                        {opt}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <button
+                    onClick={() => setSelectedOption(0)}
+                    disabled={isBusy}
+                    className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
+                      selectedOption === 0
+                        ? 'bg-yes/15 border-yes text-yes shadow-glow-yes'
+                        : 'border-surface-600 text-ink-400 hover:border-yes/40 hover:text-yes/70 hover:bg-yes/5'
+                    }`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    YES · {yesPercent}%
+                  </button>
+                  <button
+                    onClick={() => setSelectedOption(1)}
+                    disabled={isBusy}
+                    className={`flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border-2 transition-all duration-150 disabled:opacity-50 ${
+                      selectedOption === 1
+                        ? 'bg-no/15 border-no text-no shadow-glow-no'
+                        : 'border-surface-600 text-ink-400 hover:border-no/40 hover:text-no/70 hover:bg-no/5'
+                    }`}
+                  >
+                    <XCircle className="w-4 h-4" />
+                    NO · {noPercent}%
+                  </button>
+                </div>
+              )}
 
-              {/* Fixed bet amount display */}
+              {/* Fixed bet amount */}
               <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
-                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-                  {t('market.amount')}
-                </span>
+                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
                 <span className="text-sm font-black text-ink-100 flex items-center gap-1.5">
                   <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                  {BET_AMOUNT} ⭐ · fixed
+                  {BET_AMOUNT} ⭐ · {t('game.fixed')}
                 </span>
               </div>
 
-              <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
-                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-                  {t('market.potentialPayoutLabel')}
-                </span>
-                <span className="text-sm font-black text-yes">{potentialPayout} ⭐</span>
-              </div>
+              {isQuiz && isDarkPool && (
+                <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
+                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.potentialPayoutLabel')}</span>
+                  <span className="text-sm font-bold text-ink-500">{t('game.payoutRevealedAt55')}</span>
+                </div>
+              )}
 
               {(paymentState === 'error' || paymentState === 'cancelled') && (
                 <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${paymentState === 'cancelled' ? 'bg-surface-600 text-ink-400' : 'bg-no/10 text-no border border-no/20'}`}>
@@ -347,11 +440,7 @@ export default function MarketDetailPage() {
               <button
                 onClick={handlePlaceBet}
                 disabled={isBusy}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 ${
-                  side === 'yes'
-                    ? 'bg-yes hover:bg-yes-dark text-white shadow-glow-yes'
-                    : 'bg-no hover:bg-no-dark text-white shadow-glow-no'
-                }`}
+                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 bg-brand-cyan hover:bg-brand-cyan/90 text-white shadow-glow-cyan"
               >
                 {paymentState === 'creating' && (
                   <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
@@ -363,13 +452,17 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
-                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> {t('market.payButton', { stars: BET_AMOUNT, side: side.toUpperCase() })}</>
+                  <>
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    {isQuiz
+                      ? t('game.submitAnswer', { stars: BET_AMOUNT, option: OPTION_LABELS[selectedOption] })
+                      : t('market.payButton', { stars: BET_AMOUNT, side: side.toUpperCase() })
+                    }
+                  </>
                 )}
               </button>
 
-              <p className="text-center text-xs text-ink-700 mt-3">
-                {t('market.poweredBy')}
-              </p>
+              <p className="text-center text-xs text-ink-700 mt-3">{t('market.poweredBy')}</p>
             </>
           )}
         </div>

@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
-import { Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy } from 'lucide-react'
+import {
+  Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
+  Upload, RefreshCw, Play, Trash2, Languages, FileSpreadsheet
+} from 'lucide-react'
 import adminApi, { MarketCreatePayload } from '@/api/admin'
-import type { Market, MarketOutcome, User } from '@/types'
+import questionsApi from '@/api/questions'
+import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
 
-type Tab = 'markets' | 'users'
+type Tab = 'markets' | 'users' | 'questions'
 
 const MIN_PARTICIPANTS = 20
 
@@ -17,10 +21,23 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: 'bg-no/20 text-no border-no/30',
 }
 
+const TRANSLATION_BADGE: Record<string, string> = {
+  done: 'bg-yes/20 text-yes border-yes/30',
+  pending: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  failed: 'bg-no/20 text-no border-no/30',
+}
+
+const TIER_COLORS: Record<QuestionTier, string> = {
+  free: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  easy: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
+  medium: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  hard: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+}
+
+// ─── Market Form Modal ────────────────────────────────────────────────────────
+
 function MarketFormModal({
-  market,
-  onClose,
-  onSave,
+  market, onClose, onSave,
 }: {
   market?: Market
   onClose: () => void
@@ -42,54 +59,26 @@ function MarketFormModal({
         </h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              {t('admin.markets.fields.title')}
-            </label>
-            <input
-              className="input-dark w-full"
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            />
+            <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.markets.fields.title')}</label>
+            <input className="input-dark w-full" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              {t('admin.markets.fields.description')}
-            </label>
-            <textarea
-              className="input-dark w-full h-24 resize-none"
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            />
+            <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.markets.fields.description')}</label>
+            <textarea className="input-dark w-full h-24 resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-ink-400 mb-1">
-                {t('admin.markets.fields.category')}
-              </label>
-              <input
-                className="input-dark w-full"
-                value={form.category}
-                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              />
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.markets.fields.category')}</label>
+              <input className="input-dark w-full" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ink-400 mb-1">
-                {t('admin.markets.fields.closeDate')}
-              </label>
-              <input
-                type="datetime-local"
-                className="input-dark w-full"
-                value={form.close_date}
-                onChange={e => setForm(f => ({ ...f, close_date: e.target.value }))}
-              />
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.markets.fields.closeDate')}</label>
+              <input type="datetime-local" className="input-dark w-full" value={form.close_date} onChange={e => setForm(f => ({ ...f, close_date: e.target.value }))} />
             </div>
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors">
             {t('admin.markets.cancel')}
           </button>
           <button
@@ -104,39 +93,46 @@ function MarketFormModal({
   )
 }
 
+// ─── Resolve Modal ────────────────────────────────────────────────────────────
+
 function ResolveModal({
-  market,
-  onClose,
-  onResolve,
+  market, onClose, onResolve,
 }: {
   market: Market
   onClose: () => void
   onResolve: (outcome: MarketOutcome) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language.split('-')[0]
+  const options = market.options
+    ? (lang === 'en' ? market.options.en : lang === 'ru' ? market.options.ru : lang === 'hi' ? market.options.hi : market.options.mn)
+    : null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="card w-full max-w-sm mx-4">
         <h2 className="text-lg font-bold text-ink-100 mb-2">{t('admin.markets.resolveTitle')}</h2>
-        <p className="text-sm text-ink-400 mb-6 line-clamp-2">{market.title}</p>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => onResolve('yes')}
-            className="py-3 rounded-xl font-bold text-white bg-yes/20 border border-yes/40 hover:bg-yes/30 transition-colors"
-          >
-            YES
-          </button>
-          <button
-            onClick={() => onResolve('no')}
-            className="py-3 rounded-xl font-bold text-white bg-no/20 border border-no/40 hover:bg-no/30 transition-colors"
-          >
-            NO
-          </button>
-        </div>
-        <button
-          onClick={onClose}
-          className="w-full mt-3 py-2 text-sm text-ink-600 hover:text-ink-400 transition-colors"
-        >
+        <p className="text-sm text-ink-400 mb-6 line-clamp-3">{market.title}</p>
+        {options ? (
+          <div className="grid gap-2">
+            {options.map((opt, idx) => (
+              <button
+                key={idx}
+                onClick={() => onResolve(idx === 0 ? 'yes' : idx === 1 ? 'no' : idx === 2 ? 'yes' : 'no')}
+                className="py-2.5 px-4 rounded-xl font-semibold text-sm text-left text-ink-200 bg-surface-700 border border-surface-600 hover:border-brand-cyan/40 hover:bg-brand-cyan/5 transition-colors"
+              >
+                <span className="text-brand-cyan font-black mr-2">{String.fromCharCode(65 + idx)}.</span>
+                {opt}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => onResolve('yes')} className="py-3 rounded-xl font-bold text-white bg-yes/20 border border-yes/40 hover:bg-yes/30 transition-colors">YES</button>
+            <button onClick={() => onResolve('no')} className="py-3 rounded-xl font-bold text-white bg-no/20 border border-no/40 hover:bg-no/30 transition-colors">NO</button>
+          </div>
+        )}
+        <button onClick={onClose} className="w-full mt-3 py-2 text-sm text-ink-600 hover:text-ink-400 transition-colors">
           {t('admin.markets.cancel')}
         </button>
       </div>
@@ -148,13 +144,12 @@ function ParticipantBadge({ count }: { count: number }) {
   const active = count >= MIN_PARTICIPANTS
   return (
     <div className={`flex items-center gap-1 text-xs font-medium ${active ? 'text-yes' : 'text-ink-500'}`}>
-      {active
-        ? <><Trophy className="w-3 h-3" />{count}</>
-        : <><Users className="w-3 h-3" />{count}/{MIN_PARTICIPANTS}</>
-      }
+      {active ? <><Trophy className="w-3 h-3" />{count}</> : <><Users className="w-3 h-3" />{count}/{MIN_PARTICIPANTS}</>}
     </div>
   )
 }
+
+// ─── Markets Tab ──────────────────────────────────────────────────────────────
 
 function MarketsTab() {
   const { t } = useTranslation()
@@ -171,51 +166,31 @@ function MarketsTab() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'markets'] })
 
-  const createMut = useMutation({
-    mutationFn: adminApi.createMarket,
-    onSuccess: () => { invalidate(); setShowCreate(false) },
-  })
-
+  const createMut = useMutation({ mutationFn: adminApi.createMarket, onSuccess: () => { invalidate(); setShowCreate(false) } })
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateMarket>[1] }) =>
-      adminApi.updateMarket(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateMarket>[1] }) => adminApi.updateMarket(id, data),
     onSuccess: () => { invalidate(); setEditMarket(null) },
   })
-
   const closeMut = useMutation({
     mutationFn: adminApi.closeMarket,
     onSuccess: (result) => {
       invalidate()
       if (result.status === 'cancelled') {
-        setCloseNotice(
-          t('admin.markets.closeNotice', {
-            count: result.participant_count,
-            min: MIN_PARTICIPANTS,
-          })
-        )
+        setCloseNotice(t('admin.markets.closeNotice', { count: result.participant_count, min: MIN_PARTICIPANTS }))
         setTimeout(() => setCloseNotice(null), 6000)
       }
     },
   })
-
   const resolveMut = useMutation({
-    mutationFn: ({ id, outcome }: { id: number; outcome: MarketOutcome }) =>
-      adminApi.resolveMarket(id, outcome),
+    mutationFn: ({ id, outcome }: { id: number; outcome: MarketOutcome }) => adminApi.resolveMarket(id, outcome),
     onSuccess: () => { invalidate(); setResolveMarket(null) },
   })
-
-  const cancelMut = useMutation({
-    mutationFn: adminApi.cancelMarket,
-    onSuccess: invalidate,
-  })
+  const cancelMut = useMutation({ mutationFn: adminApi.cancelMarket, onSuccess: invalidate })
 
   const HEADERS = [
-    t('admin.markets.headers.title'),
-    t('admin.markets.headers.category'),
-    t('admin.markets.headers.status'),
-    t('admin.markets.headers.players'),
-    t('admin.markets.headers.volume'),
-    t('admin.markets.headers.closeDate'),
+    t('admin.markets.headers.title'), t('admin.markets.headers.category'),
+    t('admin.markets.headers.status'), t('admin.markets.headers.players'),
+    t('admin.markets.headers.volume'), t('admin.markets.headers.closeDate'),
     t('admin.markets.headers.actions'),
   ]
 
@@ -241,9 +216,7 @@ function MarketsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-600">
-                {HEADERS.map(h => (
-                  <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
-                ))}
+                {HEADERS.map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700">
@@ -251,57 +224,34 @@ function MarketsTab() {
                 <tr key={m.id} className="hover:bg-surface-700/30 transition-colors">
                   <td className="py-3 pr-4 max-w-xs">
                     <p className="text-ink-100 font-medium truncate">{m.title}</p>
-                    <p className="text-xs text-ink-600">#{m.id}</p>
+                    <p className="text-xs text-ink-600">#{m.id}{m.tier && <span className="ml-1 uppercase text-brand-cyan">[{m.tier}]</span>}</p>
                   </td>
                   <td className="py-3 pr-4">
                     <span className="text-xs text-ink-400 bg-surface-700 px-2 py-0.5 rounded-full">{m.category}</span>
                   </td>
                   <td className="py-3 pr-4">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_BADGE[m.status]}`}>
-                      {m.status}
-                    </span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_BADGE[m.status]}`}>{m.status}</span>
                   </td>
-                  <td className="py-3 pr-4">
-                    <ParticipantBadge count={m.participant_count} />
-                  </td>
+                  <td className="py-3 pr-4"><ParticipantBadge count={m.participant_count} /></td>
                   <td className="py-3 pr-4 text-ink-300">⭐{Number(m.total_volume).toLocaleString()}</td>
-                  <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">
-                    {format(new Date(m.close_date), 'MMM d, yyyy')}
-                  </td>
+                  <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">{format(new Date(m.close_date), 'MMM d, HH:mm')}</td>
                   <td className="py-3">
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setEditMarket(m)}
-                        className="p-1.5 rounded-lg text-ink-500 hover:text-ink-100 hover:bg-surface-600 transition-colors"
-                        title={t('admin.markets.tooltips.edit')}
-                      >
+                      <button onClick={() => setEditMarket(m)} className="p-1.5 rounded-lg text-ink-500 hover:text-ink-100 hover:bg-surface-600 transition-colors" title={t('admin.markets.tooltips.edit')}>
                         <BarChart2 className="w-3.5 h-3.5" />
                       </button>
                       {m.status === 'open' && (
-                        <button
-                          onClick={() => closeMut.mutate(m.id)}
-                          disabled={closeMut.isPending}
-                          className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors disabled:opacity-50"
-                          title={t('admin.markets.tooltips.close')}
-                        >
+                        <button onClick={() => closeMut.mutate(m.id)} disabled={closeMut.isPending} className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors disabled:opacity-50" title={t('admin.markets.tooltips.close')}>
                           <Clock className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {(m.status === 'open' || m.status === 'closed') && (
-                        <button
-                          onClick={() => setResolveMarket(m)}
-                          className="p-1.5 rounded-lg text-ink-500 hover:text-yes hover:bg-yes/10 transition-colors"
-                          title={t('admin.markets.tooltips.resolve')}
-                        >
+                        <button onClick={() => setResolveMarket(m)} className="p-1.5 rounded-lg text-ink-500 hover:text-yes hover:bg-yes/10 transition-colors" title={t('admin.markets.tooltips.resolve')}>
                           <CheckCircle className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {m.status !== 'cancelled' && m.status !== 'resolved' && (
-                        <button
-                          onClick={() => cancelMut.mutate(m.id)}
-                          className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors"
-                          title={t('admin.markets.tooltips.forceCancel')}
-                        >
+                        <button onClick={() => cancelMut.mutate(m.id)} className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors" title={t('admin.markets.tooltips.forceCancel')}>
                           <Ban className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -314,29 +264,14 @@ function MarketsTab() {
         </div>
       )}
 
-      {showCreate && (
-        <MarketFormModal
-          onClose={() => setShowCreate(false)}
-          onSave={data => createMut.mutate(data)}
-        />
-      )}
-      {editMarket && (
-        <MarketFormModal
-          market={editMarket}
-          onClose={() => setEditMarket(null)}
-          onSave={data => updateMut.mutate({ id: editMarket.id, data })}
-        />
-      )}
-      {resolveMarket && (
-        <ResolveModal
-          market={resolveMarket}
-          onClose={() => setResolveMarket(null)}
-          onResolve={outcome => resolveMut.mutate({ id: resolveMarket.id, outcome })}
-        />
-      )}
+      {showCreate && <MarketFormModal onClose={() => setShowCreate(false)} onSave={data => createMut.mutate(data)} />}
+      {editMarket && <MarketFormModal market={editMarket} onClose={() => setEditMarket(null)} onSave={data => updateMut.mutate({ id: editMarket.id, data })} />}
+      {resolveMarket && <ResolveModal market={resolveMarket} onClose={() => setResolveMarket(null)} onResolve={outcome => resolveMut.mutate({ id: resolveMarket.id, outcome })} />}
     </div>
   )
 }
+
+// ─── Users Tab ────────────────────────────────────────────────────────────────
 
 function UsersTab() {
   const { t } = useTranslation()
@@ -345,21 +280,11 @@ function UsersTab() {
     queryKey: ['admin', 'users'],
     queryFn: adminApi.listUsers,
   })
-
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateUser>[1] }) =>
-      adminApi.updateUser(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateUser>[1] }) => adminApi.updateUser(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   })
-
-  const HEADERS = [
-    t('admin.users.headers.user'),
-    t('admin.users.headers.balance'),
-    t('admin.users.headers.active'),
-    t('admin.users.headers.superuser'),
-    t('admin.users.headers.joined'),
-    t('admin.users.headers.actions'),
-  ]
+  const HEADERS = [t('admin.users.headers.user'), t('admin.users.headers.balance'), t('admin.users.headers.active'), t('admin.users.headers.superuser'), t('admin.users.headers.joined'), t('admin.users.headers.actions')]
 
   return (
     <div>
@@ -371,9 +296,7 @@ function UsersTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-600">
-                {HEADERS.map(h => (
-                  <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
-                ))}
+                {HEADERS.map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700">
@@ -394,23 +317,13 @@ function UsersTab() {
                       {u.is_superuser ? t('admin.users.admin') : t('admin.users.user')}
                     </span>
                   </td>
-                  <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">
-                    {format(new Date(u.created_at), 'MMM d, yyyy')}
-                  </td>
+                  <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">{format(new Date(u.created_at), 'MMM d, yyyy')}</td>
                   <td className="py-3">
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => updateMut.mutate({ id: u.id, data: { is_active: !u.is_active } })}
-                        className={`p-1.5 rounded-lg transition-colors ${u.is_active ? 'text-ink-500 hover:text-no hover:bg-no/10' : 'text-ink-500 hover:text-yes hover:bg-yes/10'}`}
-                        title={u.is_active ? t('admin.users.tooltips.deactivate') : t('admin.users.tooltips.activate')}
-                      >
+                      <button onClick={() => updateMut.mutate({ id: u.id, data: { is_active: !u.is_active } })} className={`p-1.5 rounded-lg transition-colors ${u.is_active ? 'text-ink-500 hover:text-no hover:bg-no/10' : 'text-ink-500 hover:text-yes hover:bg-yes/10'}`} title={u.is_active ? t('admin.users.tooltips.deactivate') : t('admin.users.tooltips.activate')}>
                         {u.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
                       </button>
-                      <button
-                        onClick={() => updateMut.mutate({ id: u.id, data: { is_superuser: !u.is_superuser } })}
-                        className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors"
-                        title={u.is_superuser ? t('admin.users.tooltips.removeAdmin') : t('admin.users.tooltips.makeAdmin')}
-                      >
+                      <button onClick={() => updateMut.mutate({ id: u.id, data: { is_superuser: !u.is_superuser } })} className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors" title={u.is_superuser ? t('admin.users.tooltips.removeAdmin') : t('admin.users.tooltips.makeAdmin')}>
                         <Users className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -425,30 +338,253 @@ function UsersTab() {
   )
 }
 
+// ─── Questions Tab ────────────────────────────────────────────────────────────
+
+function QuestionsTab() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
+
+  const { data: questions = [], isLoading } = useQuery({
+    queryKey: ['admin', 'questions'],
+    queryFn: () => questionsApi.list(),
+  })
+
+  const uploadMut = useMutation({
+    mutationFn: questionsApi.upload,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+      setUploadError(null)
+      setUploadSuccess(t('admin.questions.uploadSuccess', { count: data.created }))
+      setTimeout(() => setUploadSuccess(null), 5000)
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data?.detail
+      if (Array.isArray(detail?.errors)) {
+        setUploadError(detail.errors.join('\n'))
+      } else {
+        setUploadError(typeof detail === 'string' ? detail : t('admin.questions.uploadFailed'))
+      }
+    },
+  })
+
+  const translateMut = useMutation({
+    mutationFn: questionsApi.retranslate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'questions'] }),
+  })
+
+  const triggerMut = useMutation({
+    mutationFn: questionsApi.triggerTier,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+      qc.invalidateQueries({ queryKey: ['markets'] })
+    },
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: questionsApi.delete,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'questions'] }),
+  })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadError(null)
+    uploadMut.mutate(file)
+    e.target.value = ''
+  }
+
+  const TIERS: QuestionTier[] = ['free', 'easy', 'medium', 'hard']
+
+  return (
+    <div>
+      {/* Upload area */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadMut.isPending}
+          className="btn-primary text-sm px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+        >
+          {uploadMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+          {t('admin.questions.upload')}
+        </button>
+
+        <span className="text-xs text-ink-600 flex items-center gap-1">
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          {t('admin.questions.uploadFormat')}
+        </span>
+
+        <div className="ml-auto flex gap-2">
+          {TIERS.map(tier => (
+            <button
+              key={tier}
+              onClick={() => triggerMut.mutate(tier)}
+              disabled={triggerMut.isPending}
+              className="text-xs px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 bg-surface-700 border border-surface-600 text-ink-400 hover:text-ink-100 hover:border-surface-500 transition-colors disabled:opacity-50"
+              title={t('admin.questions.triggerTier', { tier })}
+            >
+              <Play className="w-3 h-3" />
+              {tier.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {uploadError && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no whitespace-pre-line">
+          {uploadError}
+        </div>
+      )}
+      {uploadSuccess && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-yes/10 border border-yes/20 text-sm text-yes">
+          {uploadSuccess}
+        </div>
+      )}
+
+      {/* CSV format hint */}
+      <div className="mb-5 rounded-xl p-4 bg-surface-800 border border-surface-700 text-xs text-ink-500">
+        <p className="font-semibold text-ink-400 mb-1">{t('admin.questions.csvFormatTitle')}</p>
+        <code className="text-brand-cyan">tier,question,option1,option2[,option3,option4],correct</code>
+        <p className="mt-1">{t('admin.questions.csvFormatDesc')}</p>
+      </div>
+
+      <p className="text-sm text-ink-400 mb-4">{t('admin.questions.count', { count: questions.length })}</p>
+
+      {isLoading ? (
+        <div className="text-center py-12 text-ink-600">{t('admin.questions.loading')}</div>
+      ) : questions.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl bg-surface-800/50 border border-surface-700">
+          <FileSpreadsheet className="w-10 h-10 text-ink-700 mx-auto mb-3" />
+          <p className="text-ink-500 text-sm">{t('admin.questions.empty')}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-surface-600">
+                {[
+                  t('admin.questions.headers.tier'),
+                  t('admin.questions.headers.question'),
+                  t('admin.questions.headers.options'),
+                  t('admin.questions.headers.translations'),
+                  t('admin.questions.headers.status'),
+                  t('admin.questions.headers.actions'),
+                ].map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-700">
+              {questions.map((q: Question) => (
+                <tr key={q.id} className="hover:bg-surface-700/30 transition-colors">
+                  <td className="py-3 pr-4">
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[q.tier]}`}>
+                      {q.tier}
+                    </span>
+                  </td>
+                  <td className="py-3 pr-4 max-w-xs">
+                    <p className="text-ink-200 text-xs leading-relaxed line-clamp-2">{q.question_mn}</p>
+                    {q.question_en && (
+                      <p className="text-ink-600 text-[10px] mt-0.5 line-clamp-1">{q.question_en}</p>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="space-y-0.5">
+                      {q.options_mn.map((opt, idx) => (
+                        <p key={idx} className={`text-[10px] ${idx === q.correct_option_idx ? 'text-yes font-bold' : 'text-ink-600'}`}>
+                          {String.fromCharCode(65 + idx)}. {opt}
+                        </p>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="flex gap-1">
+                      {(['en', 'ru', 'hi'] as const).map(lang => (
+                        <span key={lang} className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                          q[`question_${lang}` as keyof Question]
+                            ? 'bg-yes/20 text-yes'
+                            : 'bg-surface-700 text-ink-700'
+                        }`}>
+                          {lang}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3 pr-4">
+                    <div className="flex flex-col gap-1">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border w-fit ${TRANSLATION_BADGE[q.translation_status]}`}>
+                        {q.translation_status}
+                      </span>
+                      {q.is_used && (
+                        <span className="text-[10px] text-ink-600">{t('admin.questions.used')}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => translateMut.mutate(q.id)}
+                        disabled={translateMut.isPending}
+                        className="p-1.5 rounded-lg text-ink-500 hover:text-brand-cyan hover:bg-brand-cyan/10 transition-colors disabled:opacity-50"
+                        title={t('admin.questions.retranslate')}
+                      >
+                        <Languages className="w-3.5 h-3.5" />
+                      </button>
+                      {!q.is_used && (
+                        <button
+                          onClick={() => deleteMut.mutate(q.id)}
+                          disabled={deleteMut.isPending}
+                          className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors disabled:opacity-50"
+                          title={t('admin.questions.delete')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Admin Page ───────────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const { t } = useTranslation()
-  const [tab, setTab] = useState<Tab>('markets')
+  const [tab, setTab] = useState<Tab>('questions')
 
   return (
     <div>
       <h1 className="text-2xl font-black text-ink-100 mb-6">{t('admin.title')}</h1>
       <div className="card">
-        <div className="flex gap-1 mb-6 border-b border-surface-600 pb-4">
-          {(['markets', 'users'] as Tab[]).map(tabKey => (
+        <div className="flex gap-1 mb-6 border-b border-surface-600 pb-4 overflow-x-auto">
+          {([
+            { key: 'questions', icon: FileSpreadsheet, label: t('admin.tabs.questions') },
+            { key: 'markets', icon: BarChart2, label: t('admin.tabs.markets') },
+            { key: 'users', icon: Users, label: t('admin.tabs.users') },
+          ] as const).map(({ key, icon: Icon, label }) => (
             <button
-              key={tabKey}
-              onClick={() => setTab(tabKey)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all capitalize ${
-                tab === tabKey ? 'bg-surface-600 text-ink-100' : 'text-ink-500 hover:text-ink-300'
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                tab === key ? 'bg-surface-600 text-ink-100' : 'text-ink-500 hover:text-ink-300'
               }`}
             >
-              {tabKey === 'markets'
-                ? <span className="flex items-center gap-1.5"><BarChart2 className="w-4 h-4" />{t('admin.tabs.markets')}</span>
-                : <span className="flex items-center gap-1.5"><Users className="w-4 h-4" />{t('admin.tabs.users')}</span>}
+              <span className="flex items-center gap-1.5">
+                <Icon className="w-4 h-4" />{label}
+              </span>
             </button>
           ))}
         </div>
-        {tab === 'markets' ? <MarketsTab /> : <UsersTab />}
+        {tab === 'questions' && <QuestionsTab />}
+        {tab === 'markets' && <MarketsTab />}
+        {tab === 'users' && <UsersTab />}
       </div>
     </div>
   )

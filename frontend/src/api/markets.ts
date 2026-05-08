@@ -2,7 +2,7 @@ import apiClient from './client'
 import type { Market } from '@/types'
 
 export const marketsApi = {
-  list: (params?: { status?: string; category?: string; skip?: number; limit?: number }) =>
+  list: (params?: { status?: string; category?: string; tier?: string; skip?: number; limit?: number }) =>
     apiClient.get<Market[]>('/markets', { params }).then((r) => r.data),
 
   get: (id: number) =>

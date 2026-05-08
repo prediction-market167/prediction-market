@@ -1,8 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,113 +11,67 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MIN_PARTICIPANTS = 20
-AUTO_CANCEL_AFTER_HOURS = 1
-AUTO_CANCEL_CHECK_INTERVAL = 60  # seconds
+GAME_SCHEDULER_INTERVAL = 30  # seconds between scheduler ticks
 
 
-async def _auto_cancel_expired_markets() -> None:
-    """Cancel OPEN markets older than 1 hour that haven't reached 20 participants."""
-    from sqlalchemy import select, func
+async def _get_system_creator_id() -> int | None:
+    """Return the ID of the first superuser (used as market creator for auto-activated questions)."""
+    from sqlalchemy import select
     from app.db.session import AsyncSessionLocal
-    from app.models.market import Market, MarketStatus
-    from app.models.bet import Bet, BetStatus
     from app.models.user import User
-    from app.models.transaction import Transaction, TransactionType
-    from app.models.star_payment import StarPayment
-
-    deadline = datetime.now(timezone.utc) - timedelta(hours=AUTO_CANCEL_AFTER_HOURS)
-
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(Market).where(
-                Market.status == MarketStatus.OPEN,
-                Market.created_at <= deadline,
-            )
+            select(User).where(User.is_superuser == True).order_by(User.id).limit(1)
         )
-        markets = result.scalars().all()
-
-        for market in markets:
-            count_result = await db.execute(
-                select(func.count(func.distinct(Bet.user_id))).where(
-                    Bet.market_id == market.id,
-                    Bet.status != BetStatus.CANCELLED,
-                )
-            )
-            participant_count = count_result.scalar_one() or 0
-
-            if participant_count >= MIN_PARTICIPANTS:
-                continue
-
-            # Refund all active bets and cancel market
-            bets_result = await db.execute(
-                select(Bet).where(
-                    Bet.market_id == market.id,
-                    Bet.status == BetStatus.ACTIVE,
-                )
-            )
-            bets = bets_result.scalars().all()
-
-            for bet in bets:
-                user_result = await db.execute(select(User).where(User.id == bet.user_id))
-                user = user_result.scalar_one()
-
-                balance_before = user.balance
-                user.balance += bet.amount
-
-                db.add(Transaction(
-                    user_id=user.id,
-                    bet_id=bet.id,
-                    type=TransactionType.BET_REFUND,
-                    amount=bet.amount,
-                    balance_before=balance_before,
-                    balance_after=user.balance,
-                    description=f"Auto-refund: market #{market.id} cancelled (1 h, <{MIN_PARTICIPANTS} participants)",
-                ))
-                bet.status = BetStatus.CANCELLED
-
-                # Attempt Telegram Stars refund
-                sp_result = await db.execute(
-                    select(StarPayment).where(StarPayment.bet_id == bet.id)
-                )
-                star_payment = sp_result.scalar_one_or_none()
-                if star_payment and star_payment.telegram_charge_id and user.telegram_id:
-                    try:
-                        from app.bot.application import get_application
-                        await (get_application()).bot.refund_star_payment(
-                            user_telegram_id=user.telegram_id,
-                            telegram_payment_charge_id=star_payment.telegram_charge_id,
-                        )
-                        logger.info("Stars auto-refunded for star_payment %s", star_payment.id)
-                    except Exception as exc:
-                        logger.warning(
-                            "Stars auto-refund failed for star_payment %s: %s",
-                            star_payment.id, exc,
-                        )
-
-            market.status = MarketStatus.CANCELLED
-            logger.info(
-                "Auto-cancelled market %s: %d/%d participants, %d bets refunded",
-                market.id, participant_count, MIN_PARTICIPANTS, len(bets),
-            )
-
-        await db.commit()
+        user = result.scalar_one_or_none()
+        return user.id if user else None
 
 
-async def _auto_cancel_loop() -> None:
-    """Run the auto-cancel check every AUTO_CANCEL_CHECK_INTERVAL seconds."""
+async def _game_scheduler_loop() -> None:
+    """
+    Runs every GAME_SCHEDULER_INTERVAL seconds.
+    - At minute 55: reveal stats or cancel markets with insufficient participants.
+    - At minute 0-2: activate next question for each tier if not yet done this hour.
+    """
+    from app.db.session import AsyncSessionLocal
+    from app.core.game import reveal_or_cancel_open_markets, activate_all_tiers
+
+    last_reveal_hour: int = -1
+    last_activate_hour: int = -1
+
     while True:
-        await asyncio.sleep(AUTO_CANCEL_CHECK_INTERVAL)
+        await asyncio.sleep(GAME_SCHEDULER_INTERVAL)
+        now = datetime.now(timezone.utc)
+        current_minute = now.minute
+        current_hour = now.hour
+
         try:
-            await _auto_cancel_expired_markets()
+            # :55 mark — reveal or cancel quiz markets
+            if current_minute >= 55 and last_reveal_hour != current_hour:
+                logger.info("Game scheduler: running reveal/cancel for hour %s", current_hour)
+                async with AsyncSessionLocal() as db:
+                    await reveal_or_cancel_open_markets(db)
+                    await db.commit()
+                last_reveal_hour = current_hour
+
+            # :00 mark (minutes 0-2 to be safe with scheduler granularity)
+            if current_minute <= 2 and last_activate_hour != current_hour:
+                creator_id = await _get_system_creator_id()
+                if creator_id:
+                    logger.info("Game scheduler: activating hourly questions for hour %s", current_hour)
+                    async with AsyncSessionLocal() as db:
+                        await activate_all_tiers(db, creator_id)
+                        await db.commit()
+                last_activate_hour = current_hour
+
         except Exception as exc:
-            logger.error("Auto-cancel loop error: %s", exc)
+            logger.error("Game scheduler error: %s", exc, exc_info=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    cancel_task = asyncio.create_task(_auto_cancel_loop())
-    logger.info("Auto-cancel background task started (interval=%ds)", AUTO_CANCEL_CHECK_INTERVAL)
+    scheduler_task = asyncio.create_task(_game_scheduler_loop())
+    logger.info("Game scheduler started (interval=%ds)", GAME_SCHEDULER_INTERVAL)
 
     if settings.TELEGRAM_BOT_TOKEN:
         from app.bot.application import get_application
@@ -128,9 +81,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    cancel_task.cancel()
+    scheduler_task.cancel()
     try:
-        await cancel_task
+        await scheduler_task
     except asyncio.CancelledError:
         pass
 

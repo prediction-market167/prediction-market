@@ -6,8 +6,10 @@ import enum
 
 
 class BetSide(str, enum.Enum):
-    YES = "yes"
-    NO = "no"
+    YES = "yes"    # option 0
+    NO = "no"      # option 1
+    OPT2 = "opt2"  # option 2 (4-choice questions)
+    OPT3 = "opt3"  # option 3 (4-choice questions)
 
 
 class BetStatus(str, enum.Enum):
@@ -17,6 +19,10 @@ class BetStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+OPTION_IDX_TO_SIDE = {0: BetSide.YES, 1: BetSide.NO, 2: BetSide.OPT2, 3: BetSide.OPT3}
+SIDE_TO_OPTION_IDX = {v: k for k, v in OPTION_IDX_TO_SIDE.items()}
+
+
 class Bet(Base, TimestampMixin):
     __tablename__ = "bets"
 
@@ -24,7 +30,7 @@ class Bet(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"), nullable=False, index=True)
 
-    side: Mapped[BetSide] = mapped_column(Enum(BetSide), nullable=False)
+    side: Mapped[BetSide] = mapped_column(Enum(BetSide, name="betside"), nullable=False)
     status: Mapped[BetStatus] = mapped_column(Enum(BetStatus), default=BetStatus.ACTIVE)
 
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator
 from decimal import Decimal
 from datetime import datetime
+from typing import Any
 from app.models.market import MarketStatus, MarketOutcome
 
 
@@ -34,6 +35,18 @@ class MarketResponse(MarketBase):
     no_probability: Decimal
     total_volume: Decimal
     participant_count: int = 0
+
+    # Quiz fields
+    tier: str | None = None
+    title_en: str | None = None
+    title_ru: str | None = None
+    title_hi: str | None = None
+    options: dict | None = None          # {"mn": [...], "en": [...], ...}
+    correct_option_idx: int | None = None  # hidden until revealed
+    is_revealed: bool = False
+    pool_status: str | None = None       # "gathering" | "threshold_met"
+    question_id: int | None = None
+
     created_at: datetime
 
     model_config = {"from_attributes": True}

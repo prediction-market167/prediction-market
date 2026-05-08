@@ -12,10 +12,15 @@ export interface User {
 
 export type MarketStatus = 'open' | 'closed' | 'resolved' | 'cancelled'
 export type MarketOutcome = 'yes' | 'no' | 'unresolved'
+export type QuestionTier = 'free' | 'easy' | 'medium' | 'hard'
+export type PoolStatus = 'gathering' | 'threshold_met'
 
 export interface Market {
   id: number
   title: string
+  title_en?: string
+  title_ru?: string
+  title_hi?: string
   description: string
   category: string
   creator_id: number
@@ -27,9 +32,17 @@ export interface Market {
   participant_count: number
   close_date: string
   created_at: string
+
+  // Quiz fields
+  tier?: QuestionTier
+  options?: { mn: string[]; en: string[]; ru: string[]; hi: string[] }
+  correct_option_idx?: number | null
+  is_revealed: boolean
+  pool_status?: PoolStatus | null
+  question_id?: number | null
 }
 
-export type BetSide = 'yes' | 'no'
+export type BetSide = 'yes' | 'no' | 'opt2' | 'opt3'
 export type BetStatus = 'active' | 'won' | 'lost' | 'cancelled'
 
 export interface Bet {
@@ -42,6 +55,26 @@ export interface Bet {
   probability_at_bet: number
   potential_payout: number
   actual_payout?: number
+  created_at: string
+}
+
+export type TranslationStatus = 'pending' | 'done' | 'failed'
+
+export interface Question {
+  id: number
+  tier: QuestionTier
+  order_idx: number
+  question_mn: string
+  question_en?: string
+  question_ru?: string
+  question_hi?: string
+  options_mn: string[]
+  options_en?: string[]
+  options_ru?: string[]
+  options_hi?: string[]
+  correct_option_idx: number
+  is_used: boolean
+  translation_status: TranslationStatus
   created_at: string
 }
 
