@@ -8,6 +8,7 @@ import type { WithdrawResult } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import leaderboardApi from '@/api/leaderboard'
+import { Link } from 'react-router-dom'
 import {
   User as UserIcon, Star, Copy, Check, Ticket, CheckCircle, Gift, Users,
   LogOut, ArrowUpFromLine, AlertCircle,
@@ -388,6 +389,12 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
+      </div>
+      {/* Footer link */}
+      <div className="text-center pb-2">
+        <Link to="/privacy" className="text-xs text-ink-600 hover:text-ink-400 transition-colors">
+          Privacy Policy
+        </Link>
       </div>
     </div>
   )
