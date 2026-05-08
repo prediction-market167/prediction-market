@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAppDispatch, useAppSelector } from './useStore'
 import { setToken, setUser } from '@/store/slices/authSlice'
 import { authApi } from '@/api/auth'
+import i18n from '@/i18n'
 
 export function useTelegramAuth() {
   const dispatch = useAppDispatch()
@@ -21,6 +22,12 @@ export function useTelegramAuth() {
     setIsTelegram(true)
     twa.ready()
     twa.expand()
+
+    if (!localStorage.getItem('lang')) {
+      const lc = twa.initDataUnsafe?.user?.language_code ?? ''
+      if (lc === 'ru') i18n.changeLanguage('ru')
+      else if (lc === 'hi') i18n.changeLanguage('hi')
+    }
 
     // If we already have a token, fetch user profile and we're done
     if (token) {

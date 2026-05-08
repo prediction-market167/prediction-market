@@ -24,6 +24,15 @@ const hi = {
     jackpotLabel: 'जैकपॉट फंड',
     jackpotDesc: 'हर प्रतियोगिता से जमा होता है — विजेता सब ले जाता है',
     jackpotEmpty: 'बढ़ रहा है...',
+    nextContest: 'अगली प्रतियोगिता में',
+    resultsIn: 'परिणाम में',
+    weeklyChampions: 'साप्ताहिक चैंपियन',
+    weeklyEmpty: 'सीज़न अभी शुरू हुआ',
+    act1: '⚡ {{count}} खिलाड़ी मैदान में',
+    act2: '🏆 किसी ने Hard में बड़ी जीत हासिल की!',
+    act3: '🔥 Easy प्रतियोगिता तेजी से भर रही है',
+    act4: '🎯 नई प्रतियोगिताएं जल्द शुरू होंगी',
+    act5: '💰 जैकपॉट: {{amount}} ⭐ और बढ़ रहा है',
     stats: {
       activeMarkets: 'सक्रिय प्रतियोगिताएं',
       totalVolume: 'कुल पुरस्कार',
@@ -361,6 +370,11 @@ const hi = {
     empty: 'अभी कोई खिलाड़ी नहीं',
     emptyHint: 'इस स्तर में पहले प्रतिस्पर्धा करें',
     you: 'आप',
+    thisWeek: 'इस सप्ताह',
+    badgeChampion: 'चैंपियन',
+    badgeStreak: 'हॉट स्ट्रीक',
+    badgeSpeed: 'स्पीड किंग',
+    yourBadge: 'साप्ताहिक बैज',
   },
 }
 

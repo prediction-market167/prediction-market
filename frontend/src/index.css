@@ -4,6 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes confettiFall {
+  0%   { transform: translateY(-20px) rotate(0deg) scaleX(1);  opacity: 1; }
+  80%  { opacity: 0.8; }
+  100% { transform: translateY(105vh) rotate(720deg) scaleX(0.5); opacity: 0; }
+}
+@keyframes countPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.08); }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

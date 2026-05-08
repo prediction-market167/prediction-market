@@ -24,6 +24,15 @@ const en = {
     jackpotLabel: 'Jackpot Fund',
     jackpotDesc: 'Accumulates from every contest — winner takes all',
     jackpotEmpty: 'Growing...',
+    nextContest: 'Next contest in',
+    resultsIn: 'Results in',
+    weeklyChampions: 'Weekly Champions',
+    weeklyEmpty: 'Season just started',
+    act1: '⚡ {{count}} players in the arena',
+    act2: '🏆 Someone just won big in Hard!',
+    act3: '🔥 Easy contest filling fast',
+    act4: '🎯 New contests starting soon',
+    act5: '💰 Jackpot: {{amount}} ⭐ and growing',
     stats: {
       activeMarkets: 'Active Contests',
       totalVolume: 'Total Prizes',
@@ -361,6 +370,11 @@ const en = {
     empty: 'No players yet',
     emptyHint: 'Be the first to compete in this tier',
     you: 'You',
+    thisWeek: 'This Week',
+    badgeChampion: 'Champion',
+    badgeStreak: 'Hot Streak',
+    badgeSpeed: 'Speed King',
+    yourBadge: 'Weekly Badge',
   },
 }
 

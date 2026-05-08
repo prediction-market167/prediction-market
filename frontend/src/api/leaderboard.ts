@@ -10,6 +10,8 @@ export interface LeaderboardEntry {
 const leaderboardApi = {
   get: (tier: string) =>
     apiClient.get<LeaderboardEntry[]>('/leaderboard', { params: { tier } }).then(r => r.data),
+  weekly: (tier: string) =>
+    apiClient.get<LeaderboardEntry[]>('/leaderboard/weekly', { params: { tier } }).then(r => r.data),
 }
 
 export default leaderboardApi

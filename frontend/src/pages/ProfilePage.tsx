@@ -7,10 +7,17 @@ import { usersApi } from '@/api/users'
 import type { WithdrawResult } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
+import leaderboardApi from '@/api/leaderboard'
 import {
   User as UserIcon, Star, Copy, Check, Ticket, CheckCircle, Gift, Users,
   LogOut, ArrowUpFromLine, AlertCircle,
 } from 'lucide-react'
+
+const WEEKLY_BADGES: Record<number, { emoji: string; labelKey: string; color: string }> = {
+  1: { emoji: '🥇', labelKey: 'leaderboard.badgeChampion', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
+  2: { emoji: '🔥', labelKey: 'leaderboard.badgeStreak',   color: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
+  3: { emoji: '⚡', labelKey: 'leaderboard.badgeSpeed',    color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' },
+}
 
 function TonIcon({ className }: { className?: string }) {
   return (
@@ -49,6 +56,21 @@ export default function ProfilePage() {
     queryFn: authApi.me,
     enabled: !!token,
   })
+
+  const { data: weeklyEasy = [] }   = useQuery({ queryKey: ['lb-weekly', 'easy'],   queryFn: () => leaderboardApi.weekly('easy'),   staleTime: 60_000, enabled: !!user })
+  const { data: weeklyMedium = [] } = useQuery({ queryKey: ['lb-weekly', 'medium'], queryFn: () => leaderboardApi.weekly('medium'), staleTime: 60_000, enabled: !!user })
+  const { data: weeklyHard = [] }   = useQuery({ queryKey: ['lb-weekly', 'hard'],   queryFn: () => leaderboardApi.weekly('hard'),   staleTime: 60_000, enabled: !!user })
+
+  const userBadge = (() => {
+    const tiers = ['easy', 'medium', 'hard'] as const
+    const allWeekly = [weeklyEasy, weeklyMedium, weeklyHard]
+    for (let i = 0; i < tiers.length; i++) {
+      const entries = allWeekly[i]
+      const rank = entries.findIndex(e => e.username === user?.username) + 1
+      if (rank > 0 && WEEKLY_BADGES[rank]) return { tier: tiers[i], rank, badge: WEEKLY_BADGES[rank] }
+    }
+    return null
+  })()
 
   const { data: referral } = useQuery({
     queryKey: ['referral-info'],
@@ -126,6 +148,17 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+        {userBadge && (
+          <div className="mt-4 pt-4 border-t border-surface-700 flex items-center gap-3">
+            <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest">
+              {t('leaderboard.yourBadge')}
+            </p>
+            <span className={`text-xs font-black px-2.5 py-1 rounded-full border ${userBadge.badge.color}`}>
+              {userBadge.badge.emoji} {t(userBadge.badge.labelKey)}
+            </span>
+            <span className="text-xs text-ink-600 ml-auto capitalize">{userBadge.tier}</span>
+          </div>
+        )}
       </div>
 
       {/* TON Wallet & Withdrawal */}

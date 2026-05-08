@@ -32,6 +32,12 @@ const RANK_ICONS: Record<number, { icon: string; color: string }> = {
   3: { icon: '🥉', color: 'text-orange-400' },
 }
 
+const WEEKLY_BADGES: Record<number, { emoji: string; labelKey: string; color: string }> = {
+  1: { emoji: '🥇', labelKey: 'leaderboard.badgeChampion', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
+  2: { emoji: '🔥', labelKey: 'leaderboard.badgeStreak',   color: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
+  3: { emoji: '⚡', labelKey: 'leaderboard.badgeSpeed',    color: 'text-sky-400 bg-sky-500/10 border-sky-500/30' },
+}
+
 export default function LeaderboardPage() {
   const { t } = useTranslation()
   const [activeTier, setActiveTier] = useState<Tier>('easy')
@@ -42,6 +48,15 @@ export default function LeaderboardPage() {
     queryFn: () => leaderboardApi.get(activeTier),
     staleTime: 30_000,
   })
+
+  const { data: weeklyTop = [] } = useQuery({
+    queryKey: ['leaderboard', 'weekly', activeTier],
+    queryFn: () => leaderboardApi.weekly(activeTier),
+    staleTime: 60_000,
+  })
+
+  const weeklyRank = (username: string) =>
+    weeklyTop.findIndex(e => e.username === username) + 1
 
   return (
     <div className="max-w-lg mx-auto animate-slide-up">
@@ -77,6 +92,29 @@ export default function LeaderboardPage() {
         })}
       </div>
 
+      {/* Weekly Top 3 summary card */}
+      {weeklyTop.length > 0 && (
+        <div className="card p-4 mb-5 bg-surface-700/50">
+          <p className="text-[10px] font-black text-ink-600 uppercase tracking-widest mb-3">
+            {t('leaderboard.thisWeek')}
+          </p>
+          <div className="flex gap-2 justify-around">
+            {weeklyTop.slice(0, 3).map((entry, i) => {
+              const rank = i + 1
+              const b = WEEKLY_BADGES[rank]
+              return b ? (
+                <div key={entry.username} className="flex flex-col items-center gap-1">
+                  <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${b.color}`}>
+                    {b.emoji} {t(b.labelKey)}
+                  </span>
+                  <span className="text-xs text-ink-400 truncate max-w-[70px] text-center">@{entry.username}</span>
+                </div>
+              ) : null
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         {/* Header row */}
@@ -109,6 +147,7 @@ export default function LeaderboardPage() {
             {entries.map((entry) => {
               const isYou = user?.username === entry.username
               const rankMeta = RANK_ICONS[entry.rank]
+              const wRank = weeklyRank(entry.username)
               return (
                 <div
                   key={entry.rank}
@@ -126,7 +165,7 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Username */}
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                     <span className={`text-sm font-semibold truncate ${isYou ? 'text-brand-cyan' : 'text-ink-200'}`}>
                       @{entry.username}
                     </span>
@@ -135,6 +174,14 @@ export default function LeaderboardPage() {
                         {t('leaderboard.you')}
                       </span>
                     )}
+                    {wRank > 0 && (() => {
+                      const b = WEEKLY_BADGES[wRank]
+                      return b ? (
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full border flex-shrink-0 ${b.color}`}>
+                          {b.emoji} {t(b.labelKey)}
+                        </span>
+                      ) : null
+                    })()}
                   </div>
 
                   {/* Contest count */}

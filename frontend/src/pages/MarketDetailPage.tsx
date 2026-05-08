@@ -12,6 +12,7 @@ import {
   Eye, EyeOff, Loader2, Wallet, Gift,
 } from 'lucide-react'
 import type { BetSide } from '@/types'
+import Confetti from '@/components/common/Confetti'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
 type PaymentMethod = 'balance' | 'stars'
@@ -184,6 +185,7 @@ export default function MarketDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
+      <Confetti active={paymentState === 'success'} />
       {/* Market info */}
       <div className="card p-6 mb-5">
         <div className="flex items-center gap-2 mb-4">

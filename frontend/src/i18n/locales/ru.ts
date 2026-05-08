@@ -24,6 +24,15 @@ const ru = {
     jackpotLabel: 'Джекпот',
     jackpotDesc: 'Накапливается с каждого конкурса — победитель забирает всё',
     jackpotEmpty: 'Растёт...',
+    nextContest: 'Следующий конкурс через',
+    resultsIn: 'Результаты через',
+    weeklyChampions: 'Чемпионы недели',
+    weeklyEmpty: 'Сезон только начался',
+    act1: '⚡ {{count}} игроков на арене',
+    act2: '🏆 Кто-то только что выиграл в Hard!',
+    act3: '🔥 Easy-конкурс быстро заполняется',
+    act4: '🎯 Скоро новые конкурсы',
+    act5: '💰 Джекпот: {{amount}} ⭐ и растёт',
     stats: {
       activeMarkets: 'Активные конкурсы',
       totalVolume: 'Общий призовой фонд',
@@ -365,6 +374,11 @@ const ru = {
     empty: 'Пока нет игроков',
     emptyHint: 'Будьте первым в этом уровне',
     you: 'Вы',
+    thisWeek: 'Эта неделя',
+    badgeChampion: 'Чемпион',
+    badgeStreak: 'Горячая серия',
+    badgeSpeed: 'Король скорости',
+    yourBadge: 'Значок недели',
   },
 }
 
