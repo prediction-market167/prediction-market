@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppDispatch, useAppSelector } from '@/hooks/useStore'
 import { logout } from '@/store/slices/authSlice'
-import { TrendingUp, BarChart2, LogOut, Wallet, Briefcase, ShieldCheck } from 'lucide-react'
+import { TrendingUp, Swords, LogOut, Wallet, Briefcase, ShieldCheck } from 'lucide-react'
 import WalletButton from '@/components/wallet/WalletButton'
 import LanguageSwitcher from './LanguageSwitcher'
 
@@ -42,7 +42,7 @@ export default function Layout() {
                     : 'text-ink-400 hover:text-ink-100 hover:bg-surface-700'
                 }`}
               >
-                <BarChart2 className="w-4 h-4" />
+                <Swords className="w-4 h-4" />
                 {t('nav.markets')}
               </Link>
 

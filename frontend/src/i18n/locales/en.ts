@@ -1,6 +1,6 @@
 const en = {
   nav: {
-    markets: 'Markets',
+    markets: 'Compete',
     portfolio: 'Portfolio',
     admin: 'Admin',
     login: 'Log In',

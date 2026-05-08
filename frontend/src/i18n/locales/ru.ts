@@ -1,6 +1,6 @@
 const ru = {
   nav: {
-    markets: 'Рынки',
+    markets: 'Играть',
     portfolio: 'Портфель',
     admin: 'Админ',
     login: 'Войти',

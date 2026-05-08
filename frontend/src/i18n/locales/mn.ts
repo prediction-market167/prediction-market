@@ -1,6 +1,6 @@
 const mn = {
   nav: {
-    markets: 'Зах зээл',
+    markets: 'Тэмцээнд оролцох',
     portfolio: 'Портфель',
     admin: 'Админ',
     login: 'Нэвтрэх',

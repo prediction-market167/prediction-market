@@ -1,6 +1,6 @@
 const hi = {
   nav: {
-    markets: 'बाज़ार',
+    markets: 'खेलें',
     portfolio: 'पोर्टफोलियो',
     admin: 'एडमिन',
     login: 'लॉग इन',
