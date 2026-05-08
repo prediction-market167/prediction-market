@@ -14,15 +14,15 @@ _application: Application | None = None
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Open Prediction Market", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
+    keyboard = [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
     await update.message.reply_text(
-        "Welcome to Prediction Market!\nPredict real-world outcomes and earn rewards.",
+        "⚡ Welcome to Quiz Star!\nAnswer fast, win big!",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
 async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Open App", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
+    keyboard = [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
     await update.message.reply_text("Tap to open:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
@@ -30,7 +30,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(
         "Available commands:\n"
         "/start — Welcome message\n"
-        "/app — Open the Prediction Market app\n"
+        "/app — Open Quiz Star\n"
         "/help — Show this help"
     )
 

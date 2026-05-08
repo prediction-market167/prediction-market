@@ -1,5 +1,6 @@
 const en = {
   nav: {
+    brandName: 'Quiz Star',
     markets: 'Compete',
     portfolio: 'Portfolio',
     profile: 'Profile',

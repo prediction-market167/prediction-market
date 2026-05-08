@@ -1,5 +1,6 @@
 const hi = {
   nav: {
+    brandName: 'Quiz Star',
     markets: 'खेलें',
     portfolio: 'पोर्टफोलियो',
     profile: 'प्रोफ़ाइल',

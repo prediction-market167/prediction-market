@@ -1,5 +1,6 @@
 const ru = {
   nav: {
+    brandName: 'Quiz Star',
     markets: 'Играть',
     portfolio: 'Портфель',
     profile: 'Профиль',

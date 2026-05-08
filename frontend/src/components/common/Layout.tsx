@@ -68,7 +68,7 @@ export default function Layout({ loading, isTelegram }: Props) {
               <div className="w-8 h-8 rounded-xl bg-gradient-gold flex items-center justify-center shadow-glow-gold">
                 <Zap className="w-4 h-4 text-surface-900" />
               </div>
-              <span className="text-sm font-black text-gradient-gold tracking-tight uppercase">Quiz Star</span>
+              <span className="text-sm font-black text-gradient-gold tracking-tight uppercase">{t('nav.brandName')}</span>
             </Link>
 
             <div className="flex items-center gap-2">
