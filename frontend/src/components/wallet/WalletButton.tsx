@@ -133,7 +133,7 @@ export default function WalletButton() {
         className="flex items-center gap-1.5 bg-surface-700 border border-surface-600 hover:border-brand-cyan/50 text-ink-400 hover:text-brand-cyan px-3 py-1.5 rounded-xl text-sm font-semibold transition-all duration-150"
       >
         <TonIcon className="w-3.5 h-3.5" />
-        Connect
+        Connect TON Wallet
       </button>
     )
   }

@@ -2,25 +2,37 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
 import { useAppSelector } from '@/hooks/useStore'
-import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy } from 'lucide-react'
+import { TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy, Wallet } from 'lucide-react'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 20
 const MIN_PARTICIPANTS = 20
+const BET_AMOUNT = 100
+
+function TonIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L2.5 8.5L12 22L21.5 8.5L12 2Z" />
+      <path d="M2.5 8.5L12 14L21.5 8.5" stroke="rgba(0,0,0,0.25)" strokeWidth="0.5" fill="none" />
+    </svg>
+  )
+}
 
 export default function MarketDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const token = useAppSelector((s) => s.auth.token)
+  const walletAddress = useTonAddress()
+  const [tonConnectUI] = useTonConnectUI()
 
   const [side, setSide] = useState<'yes' | 'no'>('yes')
-  const [amount, setAmount] = useState('')
   const [paymentState, setPaymentState] = useState<PaymentState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [placedBetId, setPlacedBetId] = useState<number | null>(null)
@@ -58,15 +70,12 @@ export default function MarketDetailPage() {
   }, [id, queryClient, t])
 
   const handlePlaceBet = useCallback(async () => {
-    const amountNum = parseFloat(amount)
-    if (!amountNum || amountNum <= 0) return
-
     setErrorMsg('')
     setPaymentState('creating')
 
     let invoice: Awaited<ReturnType<typeof paymentsApi.createStarsInvoice>>
     try {
-      invoice = await paymentsApi.createStarsInvoice(Number(id), side, amountNum)
+      invoice = await paymentsApi.createStarsInvoice(Number(id), side, BET_AMOUNT)
     } catch (e: any) {
       setErrorMsg(e?.response?.data?.detail ?? t('market.errors.failedInvoice'))
       setPaymentState('error')
@@ -91,13 +100,12 @@ export default function MarketDetailPage() {
         setPaymentState('error')
       }
     })
-  }, [amount, id, side, pollVerify, t])
+  }, [id, side, pollVerify, t])
 
   const resetPayment = () => {
     setPaymentState('idle')
     setErrorMsg('')
     setPlacedBetId(null)
-    setAmount('')
   }
 
   if (isLoading)
@@ -116,11 +124,8 @@ export default function MarketDetailPage() {
 
   const yesPercent = Math.round(market.yes_probability * 100)
   const noPercent = 100 - yesPercent
-  const amountNum = parseFloat(amount)
   const prob = side === 'yes' ? market.yes_probability : 1 - market.yes_probability
-  const potentialPayout =
-    amount && amountNum > 0 && prob > 0 ? (amountNum / prob).toFixed(2) : '—'
-  const starsNeeded = amount && amountNum > 0 ? Math.ceil(amountNum) : null
+  const potentialPayout = prob > 0 ? (BET_AMOUNT / prob).toFixed(2) : '—'
 
   const isBusy = paymentState === 'creating' || paymentState === 'waiting' || paymentState === 'verifying'
 
@@ -229,8 +234,38 @@ export default function MarketDetailPage() {
         </div>
       </div>
 
+      {/* Not logged in */}
+      {!token && (
+        <div className="card border-gradient p-6 text-center">
+          <p className="text-ink-400 mb-4 text-sm">{t('market.signInToTrade')}</p>
+          <Link to="/login" className="btn-primary px-6 py-2.5 shadow-glow-cyan">
+            {t('market.loginToTrade')}
+          </Link>
+        </div>
+      )}
+
+      {/* Logged in but no TON wallet */}
+      {token && !walletAddress && market.status === 'open' && (
+        <div className="card border-gradient p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-brand-cyan/15 flex items-center justify-center mx-auto mb-4">
+            <TonIcon className="w-6 h-6 text-brand-cyan" />
+          </div>
+          <h3 className="text-base font-bold text-ink-100 mb-1">Connect TON Wallet to Bet</h3>
+          <p className="text-sm text-ink-400 mb-5">
+            A connected TON wallet is required to place bets. Stars are backed by real TON payments.
+          </p>
+          <button
+            onClick={() => tonConnectUI.openModal()}
+            className="btn-primary px-6 py-2.5 shadow-glow-cyan flex items-center gap-2 mx-auto"
+          >
+            <TonIcon className="w-4 h-4" />
+            Connect TON Wallet
+          </button>
+        </div>
+      )}
+
       {/* Betting panel */}
-      {token && market.status === 'open' && (
+      {token && walletAddress && market.status === 'open' && (
         <div className="card p-6">
           {paymentState === 'success' ? (
             <div className="text-center py-4">
@@ -239,7 +274,7 @@ export default function MarketDetailPage() {
               </div>
               <h3 className="text-lg font-bold text-ink-100 mb-1">{t('market.betPlaced')}</h3>
               <p className="text-sm text-ink-400 mb-1">
-                {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: amountNum.toFixed(0) })}
+                {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: BET_AMOUNT })}
               </p>
               <p className="text-xs text-ink-600 mb-6">
                 {t('market.potentialPayoutValue', { payout: potentialPayout })}
@@ -250,7 +285,13 @@ export default function MarketDetailPage() {
             </div>
           ) : (
             <>
-              <h2 className="text-lg font-bold text-ink-100 mb-5">{t('market.placeABet')}</h2>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-ink-100">{t('market.placeABet')}</h2>
+                <div className="flex items-center gap-1.5 text-xs text-ink-600">
+                  <Wallet className="w-3 h-3 text-brand-cyan" />
+                  <span className="font-mono text-brand-cyan">{walletAddress.slice(0, 4)}…{walletAddress.slice(-4)}</span>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <button
@@ -279,45 +320,23 @@ export default function MarketDetailPage() {
                 </button>
               </div>
 
-              <div className="mb-4">
-                <label className="text-xs font-semibold text-ink-400 uppercase tracking-wider mb-2 block">
+              {/* Fixed bet amount display */}
+              <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
+                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
                   {t('market.amount')}
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400 font-semibold text-sm pointer-events-none">
-                    ⭐
-                  </span>
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={e => setAmount(e.target.value)}
-                    placeholder="0"
-                    min="1"
-                    step="1"
-                    disabled={isBusy}
-                    className="input-dark pl-8"
-                  />
-                </div>
+                </span>
+                <span className="text-sm font-black text-ink-100 flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                  {BET_AMOUNT} ⭐ · fixed
+                </span>
               </div>
 
-              <div className="bg-surface-700 rounded-xl p-4 mb-2 flex justify-between items-center">
+              <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
                   {t('market.potentialPayoutLabel')}
                 </span>
                 <span className="text-sm font-black text-yes">{potentialPayout} ⭐</span>
               </div>
-
-              {starsNeeded && (
-                <div className="bg-surface-700 rounded-xl p-4 mb-5 flex justify-between items-center">
-                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-                    {t('market.starsRequired')}
-                  </span>
-                  <span className="text-sm font-bold text-ink-100 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                    {starsNeeded} ⭐
-                  </span>
-                </div>
-              )}
 
               {(paymentState === 'error' || paymentState === 'cancelled') && (
                 <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${paymentState === 'cancelled' ? 'bg-surface-600 text-ink-400' : 'bg-no/10 text-no border border-no/20'}`}>
@@ -327,7 +346,7 @@ export default function MarketDetailPage() {
 
               <button
                 onClick={handlePlaceBet}
-                disabled={isBusy || !amount || amountNum <= 0}
+                disabled={isBusy}
                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 ${
                   side === 'yes'
                     ? 'bg-yes hover:bg-yes-dark text-white shadow-glow-yes'
@@ -344,7 +363,7 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
-                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> {t('market.payButton', { stars: starsNeeded ?? '—', side: side.toUpperCase() })}</>
+                  <><Star className="w-4 h-4 fill-yellow-400 text-yellow-400" /> {t('market.payButton', { stars: BET_AMOUNT, side: side.toUpperCase() })}</>
                 )}
               </button>
 
@@ -353,15 +372,6 @@ export default function MarketDetailPage() {
               </p>
             </>
           )}
-        </div>
-      )}
-
-      {!token && (
-        <div className="card border-gradient p-6 text-center">
-          <p className="text-ink-400 mb-4 text-sm">{t('market.signInToTrade')}</p>
-          <Link to="/login" className="btn-primary px-6 py-2.5 shadow-glow-cyan">
-            {t('market.loginToTrade')}
-          </Link>
         </div>
       )}
     </div>
