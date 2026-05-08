@@ -12,27 +12,120 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 _application: Application | None = None
 
+_OPEN_BTN = lambda: [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
+
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
     await update.message.reply_text(
         "⚡ Welcome to Quiz Star!\nAnswer fast, win big!",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
     )
 
 
 async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
-    await update.message.reply_text("Tap to open:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(
+        "Tap to open Quiz Star ⚡",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
+
+
+async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from sqlalchemy import select, func
+    from app.db.session import AsyncSessionLocal
+    from app.models.user import User
+    from app.models.bet import Bet, BetStatus
+
+    tg_id = update.effective_user.id
+    async with AsyncSessionLocal() as db:
+        user_res = await db.execute(select(User).where(User.telegram_id == tg_id))
+        user = user_res.scalar_one_or_none()
+
+    if not user:
+        await update.message.reply_text(
+            "You don't have a Quiz Star account yet.\nOpen the app to get started! ⚡",
+            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        )
+        return
+
+    async with AsyncSessionLocal() as db:
+        total_res = await db.execute(
+            select(func.count(Bet.id)).where(
+                Bet.user_id == user.id,
+                Bet.status != BetStatus.CANCELLED,
+            )
+        )
+        total = total_res.scalar_one() or 0
+
+        won_res = await db.execute(
+            select(func.count(Bet.id)).where(
+                Bet.user_id == user.id,
+                Bet.status == BetStatus.WON,
+            )
+        )
+        won = won_res.scalar_one() or 0
+
+        ref_res = await db.execute(
+            select(func.count(User.id)).where(User.referred_by_id == user.id)
+        )
+        ref_count = ref_res.scalar_one() or 0
+
+    win_rate = f"{won / total * 100:.0f}%" if total > 0 else "—"
+
+    text = (
+        f"👤 *{user.username}*\n\n"
+        f"⭐ Balance: *{int(user.balance):,} Stars*\n"
+        f"🎯 Contests Entered: *{total}*\n"
+        f"🏆 Win Rate: *{win_rate}*\n"
+        f"👥 Referrals: *{ref_count}*"
+    )
+    await update.message.reply_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "Available commands:\n"
-        "/start — Welcome message\n"
-        "/app — Open Quiz Star\n"
-        "/help — Show this help"
+    text = (
+        "🎮 *How to Play Quiz Star*\n\n"
+        "Every hour a new quiz question goes live\\. Answer correctly *and fast* — "
+        "the quicker you answer, the higher you rank\\!\n\n"
+        "📊 *Contest Tiers:*\n"
+        "🟢 *Free* — Practice mode, no Stars needed\n"
+        "🔵 *Easy* — Low entry, great for beginners\n"
+        "🟡 *Medium* — Higher prizes, tougher questions\n"
+        "🔴 *Hard* — Maximum prizes, expert level\n\n"
+        "🏆 *Prize Distribution:*\n"
+        "Top 5 fastest correct answers split 50% of the pool:\n"
+        "1st → 40% · 2nd → 25% · 3rd → 15% · 4th → 10% · 5th → 10%\n"
+        "10% feeds the Jackpot · 10% Monthly Bonus pool\n\n"
+        "📱 *Commands:*\n"
+        "/profile — Your stats\n"
+        "/referral — Your referral link\n"
+        "/help — This message"
     )
+    await update.message.reply_text(
+        text,
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
+
+
+async def referral_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    tg_id = update.effective_user.id
+    bot_username = settings.TELEGRAM_BOT_USERNAME or "predictmarketa_bot"
+    ref_link = f"https://t.me/{bot_username}?start=ref_{tg_id}"
+
+    text = (
+        f"👥 *Your Referral Link*\n\n"
+        f"`{ref_link}`\n\n"
+        f"Share this link and earn *10% of every paid entry* your friends make — forever\\!\n\n"
+        f"🎁 *Milestone Rewards:*\n"
+        f"• 3 active friends → Free Easy ticket 🎫\n"
+        f"• 5 active friends → Free Medium ticket 🎫\n"
+        f"• 10 active friends → Free Hard ticket 🎫"
+    )
+    await update.message.reply_text(text, parse_mode="MarkdownV2")
 
 
 async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -135,6 +228,8 @@ def get_application() -> Application:
         _application.add_handler(CommandHandler("start", start_command))
         _application.add_handler(CommandHandler("app", app_command))
         _application.add_handler(CommandHandler("help", help_command))
+        _application.add_handler(CommandHandler("profile", profile_command))
+        _application.add_handler(CommandHandler("referral", referral_command))
         _application.add_handler(PreCheckoutQueryHandler(pre_checkout_handler))
         _application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_handler))
     return _application
