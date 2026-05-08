@@ -1,9 +1,13 @@
 import logging
+import random
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import List, Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
 
 from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
@@ -12,6 +16,8 @@ from app.models.market import Market, MarketStatus
 from app.models.bet import Bet, BetStatus
 from app.models.star_payment import StarPayment, StarPaymentStatus
 from app.models.transaction import Transaction, TransactionType
+from app.models.jackpot import SystemFunds
+from app.models.jackpot_history import JackpotHistory
 from app.schemas.market import MarketCreate, MarketUpdate, MarketResponse, MarketResolve
 from app.schemas.user import UserResponse, UserAdminUpdate
 
@@ -233,3 +239,205 @@ async def admin_update_user(
     for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     return user
+
+
+# ─── Jackpot ─────────────────────────────────────────────────────────────────
+
+class JackpotCriteria(BaseModel):
+    type: Literal["contest_count", "leaderboard"]
+    min_contests: int | None = None
+    days: int | None = None
+    tier: str | None = None
+    top_x: int | None = None
+
+
+class JackpotHistoryOut(BaseModel):
+    id: int
+    winner_username: str
+    amount: Decimal
+    criteria: dict | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class JackpotTriggerResult(BaseModel):
+    winner_username: str
+    amount: Decimal
+    eligible_count: int
+
+
+async def _get_eligible_user_ids(criteria: JackpotCriteria, db: AsyncSession) -> list[int]:
+    if criteria.type == "contest_count":
+        if not criteria.min_contests or not criteria.days:
+            return []
+        cutoff = datetime.now(timezone.utc) - timedelta(days=criteria.days)
+        stmt = (
+            select(Bet.user_id)
+            .join(Market, Bet.market_id == Market.id)
+            .join(User, Bet.user_id == User.id)
+            .where(
+                Market.tier.isnot(None),
+                Market.tier != "free",
+                Bet.status != BetStatus.CANCELLED,
+                Bet.created_at >= cutoff,
+                User.is_active == True,
+            )
+            .group_by(Bet.user_id)
+            .having(func.count(func.distinct(Bet.market_id)) >= criteria.min_contests)
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    elif criteria.type == "leaderboard":
+        if not criteria.tier or not criteria.top_x:
+            return []
+        stmt = (
+            select(Bet.user_id)
+            .select_from(Bet)
+            .join(Market, Bet.market_id == Market.id)
+            .join(User, Bet.user_id == User.id)
+            .where(
+                Market.tier == criteria.tier,
+                Bet.status != BetStatus.CANCELLED,
+                User.is_active == True,
+            )
+            .group_by(Bet.user_id)
+            .order_by(func.count(func.distinct(Bet.market_id)).desc())
+            .limit(criteria.top_x)
+        )
+        result = await db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    return []
+
+
+@router.get("/jackpot/eligible-count")
+async def jackpot_eligible_count(
+    type: str = Query(...),
+    min_contests: int | None = Query(None),
+    days: int | None = Query(None),
+    tier: str | None = Query(None),
+    top_x: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    criteria = JackpotCriteria(type=type, min_contests=min_contests, days=days, tier=tier, top_x=top_x)  # type: ignore[arg-type]
+    ids = await _get_eligible_user_ids(criteria, db)
+    return {"count": len(ids)}
+
+
+@router.post("/jackpot/trigger", response_model=JackpotTriggerResult)
+async def trigger_jackpot(
+    criteria: JackpotCriteria,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = funds_res.scalar_one_or_none()
+    if not funds or funds.jackpot_balance <= 0:
+        raise HTTPException(status_code=400, detail="No jackpot balance available")
+
+    user_ids = await _get_eligible_user_ids(criteria, db)
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="No eligible users found")
+
+    winner_id = random.choice(user_ids)
+    winner_res = await db.execute(select(User).where(User.id == winner_id))
+    winner = winner_res.scalar_one()
+
+    amount = funds.jackpot_balance
+    balance_before = winner.balance
+    winner.balance += amount
+    funds.jackpot_balance = Decimal("0.00")
+
+    tx = Transaction(
+        user_id=winner.id,
+        type=TransactionType.JACKPOT,
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=winner.balance,
+        description=f"Surprise Jackpot winner — {amount} ⭐",
+    )
+    db.add(tx)
+
+    history = JackpotHistory(
+        winner_id=winner.id,
+        winner_username=winner.username,
+        amount=amount,
+        criteria=criteria.model_dump(),
+        triggered_by_id=current_user.id,
+    )
+    db.add(history)
+    await db.flush()
+
+    if winner.telegram_id:
+        try:
+            from app.bot.application import get_application
+            app = get_application()
+            await app.bot.send_message(
+                chat_id=winner.telegram_id,
+                text=(
+                    f"🎉 Congratulations! You won the Surprise Jackpot!\n\n"
+                    f"⭐ {int(amount)} Stars have been credited to your account.\n\n"
+                    f"Keep competing to win more!"
+                ),
+            )
+        except Exception as e:
+            logger.warning("Jackpot notification failed for user %s: %s", winner.id, e)
+
+    logger.info("Jackpot triggered: %s ⭐ awarded to %s (id=%s)", amount, winner.username, winner.id)
+    return JackpotTriggerResult(
+        winner_username=winner.username,
+        amount=amount,
+        eligible_count=len(user_ids),
+    )
+
+
+@router.get("/jackpot/history", response_model=List[JackpotHistoryOut])
+async def jackpot_history(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    result = await db.execute(
+        select(JackpotHistory).order_by(JackpotHistory.created_at.desc()).limit(50)
+    )
+    return result.scalars().all()
+
+
+# ─── Broadcast ───────────────────────────────────────────────────────────────
+
+class BroadcastRequest(BaseModel):
+    message: str
+
+
+@router.post("/broadcast")
+async def broadcast_notification(
+    body: BroadcastRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    if not body.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    result = await db.execute(
+        select(User).where(User.telegram_id.isnot(None), User.is_active == True)
+    )
+    users = result.scalars().all()
+
+    try:
+        from app.bot.application import get_application
+        bot = get_application().bot
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Telegram bot not configured: {e}")
+
+    sent = 0
+    for user in users:
+        try:
+            await bot.send_message(chat_id=user.telegram_id, text=body.message)
+            sent += 1
+        except Exception as e:
+            logger.debug("Broadcast failed for user %s: %s", user.id, e)
+
+    logger.info("Broadcast sent to %d/%d users", sent, len(users))
+    return {"sent": sent, "total": len(users)}

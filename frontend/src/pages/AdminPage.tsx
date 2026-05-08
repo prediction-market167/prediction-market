@@ -4,13 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import {
   Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
-  Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet
+  Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet,
+  Zap, Bell, AlertTriangle, Send,
 } from 'lucide-react'
-import adminApi, { MarketCreatePayload } from '@/api/admin'
+import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
 import questionsApi from '@/api/questions'
+import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
 
-type Tab = 'markets' | 'users' | 'questions'
+type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications'
 
 const MIN_PARTICIPANTS = 20
 
@@ -559,6 +561,304 @@ function QuestionsTab() {
   )
 }
 
+// ─── Jackpot Tab ─────────────────────────────────────────────────────────────
+
+function JackpotTab() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [mode, setMode] = useState<'contest_count' | 'leaderboard'>('contest_count')
+  const [minContests, setMinContests] = useState(3)
+  const [days, setDays] = useState(30)
+  const [tier, setTier] = useState('easy')
+  const [topX, setTopX] = useState(10)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [result, setResult] = useState<{ winner_username: string; amount: number } | null>(null)
+
+  const criteria: JackpotCriteria = mode === 'contest_count'
+    ? { type: 'contest_count', min_contests: minContests, days }
+    : { type: 'leaderboard', tier, top_x: topX }
+
+  const { data: jackpotInfo } = useQuery({
+    queryKey: ['referral', 'jackpot'],
+    queryFn: referralApi.jackpot,
+    refetchInterval: 10_000,
+  })
+
+  const { data: eligibleData, isFetching: checkingEligible } = useQuery({
+    queryKey: ['admin', 'jackpot', 'eligible', criteria],
+    queryFn: () => adminApi.jackpotEligibleCount(criteria),
+    staleTime: 0,
+  })
+
+  const { data: history = [] } = useQuery({
+    queryKey: ['admin', 'jackpot', 'history'],
+    queryFn: adminApi.jackpotHistory,
+  })
+
+  const triggerMut = useMutation({
+    mutationFn: () => adminApi.triggerJackpot(criteria),
+    onSuccess: (data) => {
+      setResult({ winner_username: data.winner_username, amount: data.amount })
+      setShowConfirm(false)
+      qc.invalidateQueries({ queryKey: ['admin', 'jackpot', 'history'] })
+      qc.invalidateQueries({ queryKey: ['referral', 'jackpot'] })
+    },
+  })
+
+  const eligibleCount = eligibleData?.count ?? 0
+  const jackpotBalance = Number(jackpotInfo?.jackpot_balance ?? 0)
+  const hasBalance = jackpotBalance > 0
+
+  return (
+    <div className="space-y-6">
+      {/* Jackpot balance */}
+      <div className={`rounded-2xl p-5 border flex items-center gap-4 ${hasBalance ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-surface-700 border-surface-600'}`}>
+        <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+          <Zap className="w-5 h-5 text-yellow-400" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest">{t('jackpot.balance')}</p>
+          <p className={`text-2xl font-black ${hasBalance ? 'text-yellow-400' : 'text-ink-600'}`}>
+            ⭐ {jackpotBalance.toLocaleString()}
+          </p>
+          {!hasBalance && <p className="text-xs text-ink-600 mt-0.5">{t('jackpot.noBalance')}</p>}
+        </div>
+      </div>
+
+      {/* Criteria */}
+      <div className="card p-5">
+        <p className="text-sm font-black text-ink-100 mb-4">{t('jackpot.criteria')}</p>
+
+        {/* Mode toggle */}
+        <div className="flex gap-2 mb-5">
+          {(['contest_count', 'leaderboard'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-xl border transition-all ${
+                mode === m
+                  ? 'bg-brand-cyan/10 border-brand-cyan/40 text-brand-cyan'
+                  : 'bg-surface-700 border-surface-600 text-ink-500 hover:text-ink-300'
+              }`}
+            >
+              {m === 'contest_count' ? t('jackpot.modeContests') : t('jackpot.modeLeaderboard')}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'contest_count' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('jackpot.minContests')}</label>
+              <input
+                type="number" min={1}
+                value={minContests}
+                onChange={e => setMinContests(Number(e.target.value))}
+                className="input-dark w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('jackpot.lastDays')}</label>
+              <input
+                type="number" min={1}
+                value={days}
+                onChange={e => setDays(Number(e.target.value))}
+                className="input-dark w-full"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('jackpot.selectTier')}</label>
+              <select
+                value={tier}
+                onChange={e => setTier(e.target.value)}
+                className="input-dark w-full"
+              >
+                {['easy', 'medium', 'hard'].map(t => (
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('jackpot.topX')}</label>
+              <input
+                type="number" min={1}
+                value={topX}
+                onChange={e => setTopX(Number(e.target.value))}
+                className="input-dark w-full"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Eligible count */}
+        <div className="mt-4 flex items-center gap-2">
+          <Users className="w-4 h-4 text-ink-500" />
+          <span className="text-sm text-ink-400">
+            {checkingEligible
+              ? t('jackpot.checking')
+              : t('jackpot.eligibleCount', { count: eligibleCount })}
+          </span>
+        </div>
+      </div>
+
+      {/* Result banner */}
+      {result && (
+        <div className="rounded-2xl p-4 bg-yes/10 border border-yes/30 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-yes flex-shrink-0" />
+          <div>
+            <p className="text-sm font-black text-yes">{t('jackpot.successTitle')}</p>
+            <p className="text-xs text-ink-300">{t('jackpot.successDesc', { winner: result.winner_username, amount: Number(result.amount).toLocaleString() })}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={!hasBalance || eligibleCount === 0 || triggerMut.isPending}
+        className="w-full btn-primary py-3 text-base font-black flex items-center justify-center gap-2 disabled:opacity-40"
+      >
+        <Zap className="w-5 h-5" />
+        {t('jackpot.trigger')}
+      </button>
+
+      {/* History */}
+      <div>
+        <p className="text-sm font-black text-ink-100 mb-3">{t('jackpot.history')}</p>
+        {history.length === 0 ? (
+          <p className="text-sm text-ink-600 text-center py-8">{t('jackpot.noHistory')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-600">
+                  {[t('jackpot.historyDate'), t('jackpot.historyWinner'), t('jackpot.historyAmount'), t('jackpot.historyCriteria')].map(h => (
+                    <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-700">
+                {history.map(h => (
+                  <tr key={h.id}>
+                    <td className="py-3 pr-4 text-xs text-ink-400 whitespace-nowrap">{format(new Date(h.created_at), 'MMM d, HH:mm')}</td>
+                    <td className="py-3 pr-4 text-ink-100 font-semibold">@{h.winner_username}</td>
+                    <td className="py-3 pr-4 text-yellow-400 font-bold">⭐{Number(h.amount).toLocaleString()}</td>
+                    <td className="py-3 text-xs text-ink-500">
+                      {h.criteria?.type === 'contest_count'
+                        ? `≥${h.criteria.min_contests} contests / ${h.criteria.days}d`
+                        : `Top ${h.criteria?.top_x} ${h.criteria?.tier}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Confirm modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-sm mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              </div>
+              <h2 className="text-base font-black text-ink-100">{t('jackpot.confirmTitle')}</h2>
+            </div>
+            <p className="text-sm text-ink-400 mb-6">
+              {t('jackpot.confirmDesc', { amount: jackpotBalance.toLocaleString(), count: eligibleCount })}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-ink-400 bg-surface-700 hover:text-ink-100 transition-colors"
+              >
+                {t('jackpot.cancel')}
+              </button>
+              <button
+                onClick={() => triggerMut.mutate()}
+                disabled={triggerMut.isPending}
+                className="flex-1 py-2.5 rounded-xl text-sm font-black text-white bg-yellow-500 hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {triggerMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {triggerMut.isPending ? t('jackpot.triggering') : t('jackpot.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Notifications Tab ────────────────────────────────────────────────────────
+
+function NotificationsTab() {
+  const { t } = useTranslation()
+  const [message, setMessage] = useState('')
+  const [result, setResult] = useState<{ sent: number; total: number } | null>(null)
+
+  const broadcastMut = useMutation({
+    mutationFn: () => adminApi.broadcast(message),
+    onSuccess: (data) => {
+      setResult(data)
+      setMessage('')
+    },
+  })
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      <div>
+        <p className="text-sm font-black text-ink-100 mb-1">{t('notifications.title')}</p>
+        <p className="text-xs text-ink-500">{t('notifications.subtitle')}</p>
+      </div>
+
+      {result && (
+        <div className="rounded-2xl p-4 bg-yes/10 border border-yes/30 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-yes flex-shrink-0" />
+          <p className="text-sm font-semibold text-yes">
+            {t('notifications.success', { count: result.sent, total: result.total })}
+          </p>
+        </div>
+      )}
+
+      {broadcastMut.isError && (
+        <div className="rounded-2xl p-4 bg-no/10 border border-no/30 flex items-center gap-3">
+          <XCircle className="w-5 h-5 text-no flex-shrink-0" />
+          <p className="text-sm text-no">{t('notifications.error')}</p>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs font-medium text-ink-400 mb-2">{t('notifications.label')}</label>
+        <textarea
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder={t('notifications.placeholder')}
+          rows={6}
+          className="input-dark w-full resize-none"
+        />
+        <p className="text-xs text-ink-700 mt-1 text-right">{message.length} chars</p>
+      </div>
+
+      <button
+        onClick={() => broadcastMut.mutate()}
+        disabled={!message.trim() || broadcastMut.isPending}
+        className="btn-primary w-full py-3 text-sm font-black flex items-center justify-center gap-2 disabled:opacity-40"
+      >
+        {broadcastMut.isPending
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('notifications.sending')}</>
+          : <><Send className="w-4 h-4" />{t('notifications.send')}</>
+        }
+      </button>
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -574,6 +874,8 @@ export default function AdminPage() {
             { key: 'questions', icon: FileSpreadsheet, label: t('admin.tabs.questions') },
             { key: 'markets', icon: BarChart2, label: t('admin.tabs.markets') },
             { key: 'users', icon: Users, label: t('admin.tabs.users') },
+            { key: 'jackpot', icon: Zap, label: t('admin.tabs.jackpot') },
+            { key: 'notifications', icon: Bell, label: t('admin.tabs.notifications') },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -591,6 +893,8 @@ export default function AdminPage() {
         {tab === 'questions' && <QuestionsTab />}
         {tab === 'markets' && <MarketsTab />}
         {tab === 'users' && <UsersTab />}
+        {tab === 'jackpot' && <JackpotTab />}
+        {tab === 'notifications' && <NotificationsTab />}
       </div>
     </div>
   )

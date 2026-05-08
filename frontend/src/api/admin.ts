@@ -20,6 +20,30 @@ export interface UserAdminUpdatePayload {
   balance?: number
 }
 
+export type JackpotCriteriaType = 'contest_count' | 'leaderboard'
+
+export interface JackpotCriteria {
+  type: JackpotCriteriaType
+  min_contests?: number
+  days?: number
+  tier?: string
+  top_x?: number
+}
+
+export interface JackpotTriggerResult {
+  winner_username: string
+  amount: number
+  eligible_count: number
+}
+
+export interface JackpotHistoryEntry {
+  id: number
+  winner_username: string
+  amount: number
+  criteria: JackpotCriteria | null
+  created_at: string
+}
+
 const adminApi = {
   listMarkets: (status?: MarketStatus) =>
     apiClient.get<Market[]>('/admin/markets', { params: status ? { status } : {} }).then(r => r.data),
@@ -44,6 +68,18 @@ const adminApi = {
 
   updateUser: (id: number, payload: UserAdminUpdatePayload) =>
     apiClient.patch<User>(`/admin/users/${id}`, payload).then(r => r.data),
+
+  jackpotEligibleCount: (criteria: JackpotCriteria) =>
+    apiClient.get<{ count: number }>('/admin/jackpot/eligible-count', { params: criteria }).then(r => r.data),
+
+  triggerJackpot: (criteria: JackpotCriteria) =>
+    apiClient.post<JackpotTriggerResult>('/admin/jackpot/trigger', criteria).then(r => r.data),
+
+  jackpotHistory: () =>
+    apiClient.get<JackpotHistoryEntry[]>('/admin/jackpot/history').then(r => r.data),
+
+  broadcast: (message: string) =>
+    apiClient.post<{ sent: number; total: number }>('/admin/broadcast', { message }).then(r => r.data),
 }
 
 export default adminApi
