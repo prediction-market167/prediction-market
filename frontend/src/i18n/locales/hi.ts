@@ -73,6 +73,8 @@ const hi = {
     prize4th: '4th स्थान — 10%',
     prize5th: '5th स्थान — 10%',
     fasterWins: 'सही उत्तर + सबसे तेज़ = ऊँचा स्थान!',
+    freeEntry: 'मुफ़्त प्रवेश',
+    submitFree: 'उत्तर दें · मुफ़्त',
     jackpot: '10% जैकपॉट',
     referralCut: '10% रेफ़रल बोनस',
     monthlyBonus: '10% मासिक बोनस',

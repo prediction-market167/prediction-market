@@ -126,21 +126,27 @@ async def place_bet(
         raise HTTPException(status_code=404, detail="Market not found")
     if market.status != MarketStatus.OPEN:
         raise HTTPException(status_code=400, detail="Market is not open for betting")
-    if current_user.balance < bet_in.amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    # Free tier contests cost nothing — override whatever amount was sent
+    if market.tier == "free":
+        amount = Decimal("0")
+    else:
+        amount = bet_in.amount
+        if current_user.balance < amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
 
     prob = market.yes_probability if bet_in.side == BetSide.YES else market.no_probability
-    potential_payout = bet_in.amount / prob
+    potential_payout = amount / prob if prob else Decimal("0")
 
     balance_before = current_user.balance
-    current_user.balance -= bet_in.amount
-    market.total_volume += bet_in.amount
+    current_user.balance -= amount
+    market.total_volume += amount
 
     bet = Bet(
         user_id=current_user.id,
         market_id=market.id,
         side=bet_in.side,
-        amount=bet_in.amount,
+        amount=amount,
         probability_at_bet=prob,
         potential_payout=potential_payout,
     )
@@ -149,14 +155,14 @@ async def place_bet(
     tx = Transaction(
         user_id=current_user.id,
         type=TransactionType.BET_PLACED,
-        amount=-bet_in.amount,
+        amount=-amount,
         balance_before=balance_before,
         balance_after=current_user.balance,
         description=f"Bet on market #{market.id} - {bet_in.side.value.upper()}",
     )
     db.add(tx)
 
-    await _handle_referral_bonus(market, current_user, bet_in.amount, db)
+    await _handle_referral_bonus(market, current_user, amount, db)
 
     await db.flush()
     await db.refresh(bet)

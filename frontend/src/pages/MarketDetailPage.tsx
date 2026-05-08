@@ -9,7 +9,7 @@ import { authApi } from '@/api/auth'
 import { useAppSelector } from '@/hooks/useStore'
 import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
-  Eye, EyeOff, Loader2, Wallet,
+  Eye, EyeOff, Loader2, Wallet, Gift,
 } from 'lucide-react'
 import type { BetSide } from '@/types'
 
@@ -60,6 +60,8 @@ export default function MarketDetailPage() {
   const canPayBalance = userBalance >= BET_AMOUNT
 
   const isQuiz = !!market?.tier
+  const isFree = market?.tier === 'free'
+  const betAmount = isFree ? 0 : 100
   const isDarkPool = isQuiz && market?.status === 'open' && !market?.is_revealed
 
   const lang = i18n.language.split('-')[0]
@@ -107,7 +109,7 @@ export default function MarketDetailPage() {
 
     let invoice: Awaited<ReturnType<typeof paymentsApi.createStarsInvoice>>
     try {
-      invoice = await paymentsApi.createStarsInvoice(Number(id), side, BET_AMOUNT)
+      invoice = await paymentsApi.createStarsInvoice(Number(id), side, betAmount)
     } catch (e: any) {
       setErrorMsg(e?.response?.data?.detail ?? t('market.errors.failedInvoice'))
       setPaymentState('error')
@@ -138,7 +140,7 @@ export default function MarketDetailPage() {
     setErrorMsg('')
     setPaymentState('verifying')
     try {
-      const bet = await betsApi.place({ market_id: Number(id), side, amount: BET_AMOUNT })
+      const bet = await betsApi.place({ market_id: Number(id), side, amount: betAmount })
       setPlacedBetId(bet.id)
       setPaymentState('success')
       queryClient.invalidateQueries({ queryKey: ['market', id] })
@@ -150,7 +152,7 @@ export default function MarketDetailPage() {
     }
   }, [id, side, queryClient, t])
 
-  const handleSubmit = paymentMethod === 'balance' ? handleBalanceBet : handleStarsBet
+  const handleSubmit = isFree || paymentMethod === 'balance' ? handleBalanceBet : handleStarsBet
 
   const resetPayment = () => {
     setPaymentState('idle')
@@ -405,58 +407,68 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
-              {/* Payment method selector */}
-              <div className="mb-4">
-                <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
-                  {t('payment.chooseMethod')}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('balance')}
-                    disabled={isBusy || !canPayBalance}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                      paymentMethod === 'balance'
-                        ? 'bg-brand-cyan/10 border-brand-cyan/50 text-brand-cyan'
-                        : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <Wallet className="w-3.5 h-3.5" />
-                      {t('payment.withBalance')}
-                    </div>
-                    <p className="text-xs font-normal opacity-70">
-                      {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('stars')}
-                    disabled={isBusy}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                      paymentMethod === 'stars'
-                        ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
-                        : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <Star className="w-3.5 h-3.5" />
-                      {t('payment.withStars')}
-                    </div>
-                    <p className="text-xs font-normal opacity-70">Telegram Stars</p>
-                  </button>
+              {/* Payment method selector — hidden for free tier */}
+              {isFree ? (
+                <div className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 bg-emerald-500/10 border border-emerald-500/30">
+                  <Gift className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span className="text-sm font-bold text-emerald-400">{t('game.freeEntry')}</span>
+                  <span className="text-xs text-ink-500 ml-auto">0 ⭐</span>
                 </div>
-                {paymentMethod === 'balance' && !canPayBalance && (
-                  <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
-                )}
-              </div>
+              ) : (
+                <div className="mb-4">
+                  <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
+                    {t('payment.chooseMethod')}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setPaymentMethod('balance')}
+                      disabled={isBusy || !canPayBalance}
+                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                        paymentMethod === 'balance'
+                          ? 'bg-brand-cyan/10 border-brand-cyan/50 text-brand-cyan'
+                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Wallet className="w-3.5 h-3.5" />
+                        {t('payment.withBalance')}
+                      </div>
+                      <p className="text-xs font-normal opacity-70">
+                        {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod('stars')}
+                      disabled={isBusy}
+                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                        paymentMethod === 'stars'
+                          ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
+                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Star className="w-3.5 h-3.5" />
+                        {t('payment.withStars')}
+                      </div>
+                      <p className="text-xs font-normal opacity-70">Telegram Stars</p>
+                    </button>
+                  </div>
+                  {paymentMethod === 'balance' && !canPayBalance && (
+                    <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
+                  )}
+                </div>
+              )}
 
-              {/* Fixed bet amount */}
-              <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
-                <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
-                <span className="text-sm font-black text-ink-100 flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                  {BET_AMOUNT} ⭐ · {t('game.fixed')}
-                </span>
-              </div>
+              {/* Fixed bet amount — hidden for free tier (shown in free entry badge above) */}
+              {!isFree && (
+                <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
+                  <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
+                  <span className="text-sm font-black text-ink-100 flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                    {betAmount} ⭐ · {t('game.fixed')}
+                  </span>
+                </div>
+              )}
 
               {isQuiz && isDarkPool && (
                 <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
@@ -473,7 +485,7 @@ export default function MarketDetailPage() {
 
               <button
                 onClick={handleSubmit}
-                disabled={isBusy || (paymentMethod === 'balance' && !canPayBalance)}
+                disabled={isBusy || (!isFree && paymentMethod === 'balance' && !canPayBalance)}
                 className="w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 bg-brand-cyan hover:bg-brand-cyan/90 text-white shadow-glow-cyan"
               >
                 {paymentState === 'creating' && (
@@ -483,16 +495,20 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
-                  <>
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    {isQuiz
-                      ? t('game.submitAnswer', { stars: BET_AMOUNT, option: OPTION_LABELS[selectedOption] })
-                      : t('market.payButton', { stars: BET_AMOUNT, side: side.toUpperCase() })
-                    }
-                  </>
+                  isFree ? (
+                    <><Gift className="w-4 h-4" />{t('game.submitFree')}</>
+                  ) : (
+                    <>
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      {isQuiz
+                        ? t('game.submitAnswer', { stars: betAmount, option: OPTION_LABELS[selectedOption] })
+                        : t('market.payButton', { stars: betAmount, side: side.toUpperCase() })
+                      }
+                    </>
+                  )
                 )}
               </button>
 

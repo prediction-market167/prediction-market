@@ -73,6 +73,8 @@ const en = {
     prize4th: '4th Place — 10%',
     prize5th: '5th Place — 10%',
     fasterWins: 'Correct answer + fastest time wins a higher place!',
+    freeEntry: 'Free Entry',
+    submitFree: 'Submit Answer · Free',
     jackpot: '10% Jackpot Fund',
     referralCut: '10% Referral Bonus',
     monthlyBonus: '10% Monthly Bonus',

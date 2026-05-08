@@ -121,7 +121,7 @@ async def reveal_or_cancel_open_markets(db: AsyncSession) -> None:
         )
         participant_count = count_result.scalar_one() or 0
 
-        if participant_count < MIN_PARTICIPANTS:
+        if market.tier != "free" and participant_count < MIN_PARTICIPANTS:
             await _cancel_market(market, db)
         else:
             await _settle_quiz_market(market, participant_count, db)
@@ -195,7 +195,7 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
     )
     bets = bets_result.scalars().all()
 
-    total_pool = BET_AMOUNT * len(bets)
+    total_pool = sum(b.amount for b in bets)
     winner_pool = total_pool * WINNER_POOL_SHARE
     jackpot_add = total_pool * JACKPOT_SHARE
     monthly_add = total_pool * MONTHLY_BONUS_SHARE
