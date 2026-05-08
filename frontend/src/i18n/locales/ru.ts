@@ -276,6 +276,20 @@ const ru = {
     milestone10: '10 друзей → бесплатный билет Hard',
     friendsCount: '{{count}} / {{target}}',
   },
+  leaderboard: {
+    title: 'Рейтинг',
+    navLabel: 'Рейтинг',
+    easy: 'Легко',
+    medium: 'Средне',
+    hard: 'Сложно',
+    rank: '#',
+    player: 'Игрок',
+    contests: 'Конкурсы',
+    winnings: 'Выигрыш',
+    empty: 'Пока нет игроков',
+    emptyHint: 'Будьте первым в этом уровне',
+    you: 'Вы',
+  },
 }
 
 export default ru

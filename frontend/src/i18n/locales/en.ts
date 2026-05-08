@@ -272,6 +272,20 @@ const en = {
     milestone10: '10 friends → Free Hard ticket',
     friendsCount: '{{count}} / {{target}}',
   },
+  leaderboard: {
+    title: 'Leaderboard',
+    navLabel: 'Ranks',
+    easy: 'Easy',
+    medium: 'Medium',
+    hard: 'Hard',
+    rank: '#',
+    player: 'Player',
+    contests: 'Contests',
+    winnings: 'Winnings',
+    empty: 'No players yet',
+    emptyHint: 'Be the first to compete in this tier',
+    you: 'You',
+  },
 }
 
 export default en

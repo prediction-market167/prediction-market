@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/hooks/useStore'
-import { TrendingUp, Swords, Briefcase, ShieldCheck, UserCircle, Star, Loader2 } from 'lucide-react'
+import { TrendingUp, Swords, Briefcase, ShieldCheck, UserCircle, Star, Loader2, Trophy } from 'lucide-react'
 import WalletButton from '@/components/wallet/WalletButton'
 import LanguageSwitcher from './LanguageSwitcher'
 
@@ -86,6 +86,18 @@ export default function Layout({ loading, isTelegram }: Props) {
               >
                 <Briefcase className="w-4 h-4" />
                 <span className="hidden sm:inline">{t('nav.portfolio')}</span>
+              </Link>
+
+              <Link
+                to="/leaderboard"
+                className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl transition-all duration-150 ${
+                  isActive('/leaderboard')
+                    ? 'bg-surface-700 text-ink-100'
+                    : 'text-ink-400 hover:text-ink-100 hover:bg-surface-700'
+                }`}
+              >
+                <Trophy className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('leaderboard.navLabel')}</span>
               </Link>
 
               <Link

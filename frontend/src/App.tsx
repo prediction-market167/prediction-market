@@ -6,6 +6,7 @@ import MarketsPage from '@/pages/MarketsPage'
 import MarketDetailPage from '@/pages/MarketDetailPage'
 import PortfolioPage from '@/pages/PortfolioPage'
 import ProfilePage from '@/pages/ProfilePage'
+import LeaderboardPage from '@/pages/LeaderboardPage'
 import AdminPage from '@/pages/AdminPage'
 import Layout from '@/components/common/Layout'
 
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="markets" element={<MarketsPage />} />
           <Route path="markets/:id" element={<MarketDetailPage />} />
           <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route
             path="admin"

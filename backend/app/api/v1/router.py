@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import admin, auth, bets, markets, payments, telegram, users, questions, referral
+from app.api.v1.endpoints import admin, auth, bets, leaderboard, markets, payments, telegram, users, questions, referral
 
 api_router = APIRouter()
 
@@ -12,3 +12,4 @@ api_router.include_router(telegram.router, prefix="/telegram", tags=["telegram"]
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(questions.router, prefix="/admin/questions", tags=["questions"])
 api_router.include_router(referral.router, prefix="/referral", tags=["referral"])
+api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["leaderboard"])

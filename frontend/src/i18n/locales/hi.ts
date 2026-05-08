@@ -272,6 +272,20 @@ const hi = {
     milestone10: '10 दोस्त → मुफ़्त Hard टिकट',
     friendsCount: '{{count}} / {{target}}',
   },
+  leaderboard: {
+    title: 'लीडरबोर्ड',
+    navLabel: 'रैंकिंग',
+    easy: 'आसान',
+    medium: 'मध्यम',
+    hard: 'कठिन',
+    rank: '#',
+    player: 'खिलाड़ी',
+    contests: 'प्रतियोगिताएं',
+    winnings: 'जीत',
+    empty: 'अभी कोई खिलाड़ी नहीं',
+    emptyHint: 'इस स्तर में पहले प्रतिस्पर्धा करें',
+    you: 'आप',
+  },
 }
 
 export default hi
