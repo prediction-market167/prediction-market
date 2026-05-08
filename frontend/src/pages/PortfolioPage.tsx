@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { betsApi } from '@/api/bets'
 import { authApi } from '@/api/auth'
-import { useEffect } from 'react'
+import referralApi from '@/api/referral'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppDispatch } from '@/hooks/useStore'
 import { setUser } from '@/store/slices/authSlice'
-import { Wallet, TrendingUp, CheckCircle, XCircle, Clock, Ban } from 'lucide-react'
+import {
+  Wallet, TrendingUp, CheckCircle, XCircle, Clock, Ban,
+  Users, Star, Gift, Copy, Check, Ticket, ChevronRight,
+} from 'lucide-react'
 import type { Bet, BetStatus } from '@/types'
 import {
   AreaChart,
@@ -63,6 +67,164 @@ const tooltipStyle = {
   fontSize: '0.8125rem',
 }
 
+const TIER_COLORS: Record<string, string> = {
+  easy: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
+  medium: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  hard: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+}
+
+const MILESTONES = [
+  { count: 3, tier: 'easy' },
+  { count: 5, tier: 'medium' },
+  { count: 10, tier: 'hard' },
+]
+
+function ReferralSection() {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+
+  const { data: info, isLoading } = useQuery({
+    queryKey: ['referral-info'],
+    queryFn: referralApi.info,
+  })
+
+  const handleCopy = () => {
+    if (!info?.referral_link) return
+    navigator.clipboard.writeText(info.referral_link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (isLoading) return <div className="card p-6 h-40 animate-pulse" />
+
+  const activeCount = info?.active_referral_count ?? 0
+  const nextMs = info?.next_milestone
+
+  return (
+    <div className="card p-6 mb-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-brand-purple/20 rounded-2xl flex items-center justify-center">
+          <Users className="w-5 h-5 text-brand-purple" />
+        </div>
+        <div>
+          <h2 className="text-base font-black text-ink-100">{t('referral.title')}</h2>
+          <p className="text-xs text-ink-600">{t('referral.subtitle')}</p>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="bg-surface-700 rounded-2xl p-4">
+          <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
+            {t('referral.activeFriends')}
+          </p>
+          <p className="text-2xl font-black text-ink-100">{activeCount}</p>
+        </div>
+        <div className="bg-surface-700 rounded-2xl p-4">
+          <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
+            {t('referral.lifetimeEarnings')}
+          </p>
+          <p className="text-2xl font-black text-yes">
+            {Number(info?.lifetime_earnings ?? 0).toLocaleString()} ⭐
+          </p>
+        </div>
+      </div>
+
+      {/* Referral link */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
+          {t('referral.link')}
+        </p>
+        <div className="flex items-center gap-2 bg-surface-700 rounded-xl px-3 py-2.5">
+          <p className="flex-1 text-xs text-brand-cyan font-mono truncate">
+            {info?.referral_link ?? '—'}
+          </p>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 text-xs font-semibold text-ink-400 hover:text-ink-100 transition-colors px-2 py-1 rounded-lg hover:bg-surface-600"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-yes" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? t('referral.copied') : t('referral.copy')}
+          </button>
+        </div>
+      </div>
+
+      {/* Milestone progress */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-3">
+          {t('referral.milestones')}
+        </p>
+        <div className="space-y-2">
+          {MILESTONES.map(({ count, tier }) => {
+            const reached = activeCount >= count
+            const tierClass = TIER_COLORS[tier] ?? ''
+            return (
+              <div
+                key={tier}
+                className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
+                  reached ? 'bg-yes/10 border-yes/30' : 'bg-surface-700 border-surface-600'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Ticket className={`w-4 h-4 ${reached ? 'text-yes' : 'text-ink-600'}`} />
+                  <span className={`text-sm font-semibold ${reached ? 'text-ink-100' : 'text-ink-500'}`}>
+                    {t(`referral.milestone${count}`)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${tierClass}`}>
+                    {tier.toUpperCase()}
+                  </span>
+                  {reached
+                    ? <CheckCircle className="w-4 h-4 text-yes" />
+                    : <span className="text-xs text-ink-600">{t('referral.friendsCount', { count: activeCount, target: count })}</span>
+                  }
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Available tickets */}
+      {info && info.tickets.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-3">
+            {t('referral.tickets')}
+          </p>
+          <div className="space-y-2">
+            {info.tickets.map((ticket) => (
+              <div key={ticket.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${TIER_COLORS[ticket.tier] ?? ''}`}>
+                <Gift className="w-4 h-4" />
+                <span className="text-sm font-bold">
+                  {t('referral.ticketLabel', { tier: ticket.tier.toUpperCase() })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* How it works */}
+      <div className="mt-6 pt-5 border-t border-surface-700">
+        <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest mb-3">
+          {t('referral.howItWorks')}
+        </p>
+        <div className="space-y-2">
+          {[t('referral.step1'), t('referral.step2'), t('referral.step3')].map((step, i) => (
+            <div key={i} className="flex items-start gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-brand-purple/20 text-brand-purple text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                {i + 1}
+              </span>
+              <p className="text-sm text-ink-400 leading-relaxed">{step}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PortfolioPage() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -111,8 +273,8 @@ export default function PortfolioPage() {
       {user && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: t('portfolio.stats.balance'), value: `$${Number(user.balance).toLocaleString()}`, Icon: Wallet, color: 'text-brand-cyan' },
-            { label: t('portfolio.stats.totalWagered'), value: `$${totalWagered.toLocaleString()}`, Icon: TrendingUp, color: 'text-ink-200' },
+            { label: t('portfolio.stats.balance'), value: `${Number(user.balance).toLocaleString()} ⭐`, Icon: Wallet, color: 'text-brand-cyan' },
+            { label: t('portfolio.stats.totalWagered'), value: `${totalWagered.toLocaleString()} ⭐`, Icon: TrendingUp, color: 'text-ink-200' },
             { label: t('portfolio.stats.totalBets'), value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
             { label: t('portfolio.stats.winRate'), value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
           ].map(({ label, value, Icon, color }) => (
@@ -140,7 +302,7 @@ export default function PortfolioPage() {
                   {t('portfolio.pnl')}
                 </p>
                 <p className={`text-2xl font-black ${pnlPositive ? 'text-yes' : 'text-no'}`}>
-                  {pnlPositive ? '+' : ''}${totalPnl.toFixed(2)}
+                  {pnlPositive ? '+' : ''}{totalPnl.toFixed(2)} ⭐
                 </p>
               </div>
               <span
@@ -182,12 +344,12 @@ export default function PortfolioPage() {
                   tick={{ fill: '#4a5a7a', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${v}`}
+                  tickFormatter={(v) => `${v}⭐`}
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   cursor={{ stroke: '#243556', strokeWidth: 1 }}
-                  formatter={(v: number) => [`$${v.toFixed(2)}`, t('portfolio.pnlLabel')]}
+                  formatter={(v: number) => [`${v.toFixed(2)} ⭐`, t('portfolio.pnlLabel')]}
                 />
                 <Area
                   type="monotone"
@@ -242,6 +404,9 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {/* Referral Section */}
+      <ReferralSection />
+
       {/* Bet History */}
       <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest mb-4">
         {t('portfolio.betHistory')}
@@ -282,10 +447,10 @@ export default function PortfolioPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-black text-ink-100">
-                    ${Number(bet.amount).toLocaleString()}
+                    {Number(bet.amount).toLocaleString()} ⭐
                   </p>
                   <p className="text-xs text-ink-600 mt-0.5">
-                    → ${Number(bet.potential_payout).toFixed(2)}
+                    → {Number(bet.potential_payout).toFixed(0)} ⭐
                   </p>
                 </div>
               </div>

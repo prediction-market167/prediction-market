@@ -37,6 +37,8 @@ class UserResponse(UserBase):
     is_active: bool
     is_superuser: bool
     ton_wallet_address: str | None = None
+    referral_code: str | None = None
+    lifetime_referral_earnings: Decimal = Decimal("0")
     created_at: datetime
 
     model_config = {"from_attributes": True}

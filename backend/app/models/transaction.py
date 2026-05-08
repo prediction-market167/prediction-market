@@ -11,6 +11,9 @@ class TransactionType(str, enum.Enum):
     BET_PLACED = "bet_placed"
     BET_WON = "bet_won"
     BET_REFUND = "bet_refund"
+    REFERRAL_BONUS = "referral_bonus"
+    JACKPOT = "jackpot"
+    MONTHLY_BONUS = "monthly_bonus"
 
 
 class Transaction(Base, TimestampMixin):

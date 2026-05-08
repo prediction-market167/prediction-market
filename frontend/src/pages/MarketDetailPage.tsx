@@ -67,13 +67,13 @@ export default function MarketDetailPage() {
   const localizedOptions = useMemo(() => {
     if (!market?.options) return null
     const opts = market.options
-    return (lang === 'en' ? opts.en : lang === 'ru' ? opts.ru : lang === 'hi' ? opts.hi : opts.mn) || opts.mn
+    return (lang === 'ru' ? opts.ru : lang === 'hi' ? opts.hi : opts.en) || opts.en || []
   }, [market?.options, lang])
 
   const localizedTitle = useMemo(() => {
     if (!market) return ''
     if (!isQuiz) return market.title
-    return (lang === 'en' ? market.title_en : lang === 'ru' ? market.title_ru : lang === 'hi' ? market.title_hi : market.title) || market.title
+    return (lang === 'ru' ? market.title_ru : lang === 'hi' ? market.title_hi : market.title_en) || market.title_en || market.title
   }, [market, isQuiz, lang])
 
   const side = OPTION_TO_SIDE[selectedOption] ?? 'yes'

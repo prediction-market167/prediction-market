@@ -12,10 +12,37 @@ MIN_PARTICIPANTS = 20
 REVEAL_AFTER_MINUTES = 55
 BET_AMOUNT = Decimal("100")
 
+# Prize pool allocation (must sum to 1.0)
+WINNER_POOL_SHARE = Decimal("0.50")
+JACKPOT_SHARE = Decimal("0.10")
+MONTHLY_BONUS_SHARE = Decimal("0.10")
+# REFERRAL_SHARE = 0.10  — paid per-bet at placement time
+# ADMIN_PROFIT = 0.20    — retained by system (not distributed)
+
+# Top-5 winner payouts (sum = 1.0 of winner pool)
+WINNER_RANKS = [
+    Decimal("0.40"),  # 1st
+    Decimal("0.25"),  # 2nd
+    Decimal("0.15"),  # 3rd
+    Decimal("0.10"),  # 4th
+    Decimal("0.10"),  # 5th
+]
+
 
 def _correct_side(correct_option_idx: int) -> str:
     mapping = {0: "yes", 1: "no", 2: "opt2", 3: "opt3"}
     return mapping.get(correct_option_idx, "yes")
+
+
+async def _update_system_funds(jackpot_add: Decimal, monthly_add: Decimal, db: AsyncSession) -> None:
+    from app.models.jackpot import SystemFunds
+    funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = funds_res.scalar_one_or_none()
+    if funds:
+        funds.jackpot_balance += jackpot_add
+        funds.monthly_bonus_balance += monthly_add
+    else:
+        db.add(SystemFunds(id=1, jackpot_balance=jackpot_add, monthly_bonus_balance=monthly_add))
 
 
 async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
@@ -34,10 +61,8 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
         return None
 
     now = datetime.now(timezone.utc)
-    # close_date = :55 of the current hour
     close_date = now.replace(minute=55, second=0, microsecond=0)
     if now.minute >= 55:
-        # already past :55 this hour — schedule for next hour's :55
         close_date = (now + timedelta(hours=1)).replace(minute=55, second=0, microsecond=0)
 
     options_all = {
@@ -71,12 +96,9 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
 
 
 async def reveal_or_cancel_open_markets(db: AsyncSession) -> None:
-    """At :55 mark: reveal stats for markets ≥ MIN_PARTICIPANTS, cancel others."""
+    """At :55 mark: reveal stats for markets >= MIN_PARTICIPANTS, cancel others."""
     from app.models.market import Market, MarketStatus
     from app.models.bet import Bet, BetStatus
-    from app.models.user import User
-    from app.models.transaction import Transaction, TransactionType
-    from app.models.star_payment import StarPayment
 
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=REVEAL_AFTER_MINUTES)
 
@@ -84,7 +106,7 @@ async def reveal_or_cancel_open_markets(db: AsyncSession) -> None:
         select(Market).where(
             Market.status == MarketStatus.OPEN,
             Market.revealed_at.is_(None),
-            Market.tier.isnot(None),      # only quiz markets
+            Market.tier.isnot(None),
             Market.created_at <= cutoff,
         )
     )
@@ -150,7 +172,14 @@ async def _cancel_market(market, db: AsyncSession) -> None:
 
 
 async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) -> None:
-    """Reveal stats and settle winnings for a quiz market at the :55 mark."""
+    """
+    Settle winners using prize distribution:
+      50% winner pool → top 5 (40/25/15/10/10%)  ranked by correct answer + fastest time
+      10% jackpot fund
+      10% monthly bonus
+      10% referral (paid per-bet at placement)
+      20% admin profit (retained)
+    """
     from app.models.market import MarketStatus, MarketOutcome
     from app.models.bet import Bet, BetStatus
     from app.models.user import User
@@ -158,48 +187,65 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
 
     correct_side = _correct_side(market.correct_option_idx)
 
-    # Fetch all active bets
+    # Fetch bets sorted by created_at (fastest response = earliest timestamp)
     bets_result = await db.execute(
-        select(Bet).where(Bet.market_id == market.id, Bet.status == BetStatus.ACTIVE)
+        select(Bet)
+        .where(Bet.market_id == market.id, Bet.status == BetStatus.ACTIVE)
+        .order_by(Bet.created_at)
     )
     bets = bets_result.scalars().all()
 
     total_pool = BET_AMOUNT * len(bets)
-    winners = [b for b in bets if b.side == correct_side]
-    losers = [b for b in bets if b.side != correct_side]
+    winner_pool = total_pool * WINNER_POOL_SHARE
+    jackpot_add = total_pool * JACKPOT_SHARE
+    monthly_add = total_pool * MONTHLY_BONUS_SHARE
 
-    if winners:
-        payout_each = Decimal(int(total_pool / len(winners)))
-    else:
-        payout_each = Decimal("0")
+    correct_bets = [b for b in bets if b.side == correct_side]
+    losing_bets = [b for b in bets if b.side != correct_side]
 
-    for bet in winners:
+    # If no one got it right, winner pool rolls into jackpot
+    if not correct_bets:
+        jackpot_add += winner_pool
+        winner_pool = Decimal("0")
+
+    top_winners = correct_bets[:5]
+
+    for rank, bet in enumerate(top_winners):
+        share = WINNER_RANKS[rank]
+        payout = Decimal(int(winner_pool * share))
         user_res = await db.execute(select(User).where(User.id == bet.user_id))
         user = user_res.scalar_one()
         before = user.balance
-        user.balance += payout_each
+        user.balance += payout
         bet.status = BetStatus.WON
-        bet.actual_payout = payout_each
+        bet.actual_payout = payout
         db.add(Transaction(
             user_id=user.id, bet_id=bet.id,
             type=TransactionType.BET_WON,
-            amount=payout_each,
+            amount=payout,
             balance_before=before,
             balance_after=user.balance,
-            description=f"Quiz win: market #{market.id} · {payout_each}⭐",
+            description=f"Quiz #{rank+1} place: market #{market.id} · {payout}⭐",
         ))
 
-    for bet in losers:
+    # Correct bets beyond top 5 also get LOST (didn't make top 5)
+    for bet in correct_bets[5:]:
         bet.status = BetStatus.LOST
         bet.actual_payout = Decimal("0")
+
+    for bet in losing_bets:
+        bet.status = BetStatus.LOST
+        bet.actual_payout = Decimal("0")
+
+    await _update_system_funds(jackpot_add, monthly_add, db)
 
     market.revealed_at = datetime.now(timezone.utc)
     market.status = MarketStatus.RESOLVED
     market.outcome = MarketOutcome.YES if correct_side == "yes" else MarketOutcome.NO
 
     logger.info(
-        "Settled market %s: %d winners, %d losers, payout=%s each",
-        market.id, len(winners), len(losers), payout_each,
+        "Settled market %s: %d correct, top %d winners, jackpot+=%.0f, monthly+=%.0f",
+        market.id, len(correct_bets), len(top_winners), jackpot_add, monthly_add,
     )
 
 
@@ -212,7 +258,6 @@ async def activate_all_tiers(db: AsyncSession, creator_id: int) -> None:
     hour_start = now.replace(minute=0, second=0, microsecond=0)
 
     for tier in QuestionTier:
-        # Check if there's already an open market for this tier created this hour
         existing = await db.execute(
             select(Market).where(
                 Market.tier == tier.value,
@@ -221,7 +266,7 @@ async def activate_all_tiers(db: AsyncSession, creator_id: int) -> None:
             )
         )
         if existing.scalar_one_or_none():
-            continue  # already active for this hour
+            continue
 
         market = await activate_question_for_tier(tier, db, creator_id)
         if market is None:

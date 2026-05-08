@@ -7,6 +7,8 @@ export interface User {
   is_active: boolean
   is_superuser: boolean
   ton_wallet_address: string | null
+  referral_code?: string | null
+  lifetime_referral_earnings?: number
   created_at: string
 }
 
@@ -35,7 +37,7 @@ export interface Market {
 
   // Quiz fields
   tier?: QuestionTier
-  options?: { mn: string[]; en: string[]; ru: string[]; hi: string[] }
+  options?: { mn?: string[]; en: string[]; ru: string[]; hi: string[] }
   correct_option_idx?: number | null
   is_revealed: boolean
   pool_status?: PoolStatus | null
@@ -78,6 +80,32 @@ export interface Question {
   created_at: string
 }
 
+export interface ReferralTicket {
+  id: number
+  tier: QuestionTier
+  is_used: boolean
+  created_at: string
+}
+
+export interface ReferralMilestone {
+  count: number
+  tier: string
+}
+
+export interface ReferralInfo {
+  referral_code: string | null
+  referral_link: string
+  active_referral_count: number
+  lifetime_earnings: number
+  tickets: ReferralTicket[]
+  next_milestone: ReferralMilestone | null
+}
+
+export interface JackpotInfo {
+  jackpot_balance: number
+  monthly_bonus_balance: number
+}
+
 export interface Token {
   access_token: string
   token_type: string
@@ -106,6 +134,7 @@ declare global {
           query_id?: string
           auth_date: number
           hash: string
+          start_param?: string
         }
         ready(): void
         expand(): void

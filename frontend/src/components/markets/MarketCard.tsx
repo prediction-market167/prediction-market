@@ -79,7 +79,7 @@ export default function MarketCard({ market, tier }: Props) {
   // Get localized title
   const lang = i18n.language.split('-')[0]
   const localizedTitle = isQuiz
-    ? (lang === 'en' ? market.title_en : lang === 'ru' ? market.title_ru : lang === 'hi' ? market.title_hi : market.title) || market.title
+    ? (lang === 'ru' ? market.title_ru : lang === 'hi' ? market.title_hi : market.title_en) || market.title_en || market.title
     : market.title
 
   const gradientLine = tier

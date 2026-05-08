@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean, Numeric, BigInteger
+from sqlalchemy import String, Boolean, Numeric, BigInteger, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 from decimal import Decimal
@@ -18,6 +18,12 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Referral system
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)
+    referred_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    lifetime_referral_earnings: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"), nullable=False)
+
     bets = relationship("Bet", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
     markets = relationship("Market", back_populates="creator")
+    referred_by = relationship("User", foreign_keys=[referred_by_id], remote_side="User.id")
