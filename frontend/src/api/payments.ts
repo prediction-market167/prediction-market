@@ -13,7 +13,7 @@ export interface StarsVerifyResponse {
 }
 
 const paymentsApi = {
-  createStarsInvoice: (market_id: number, side: 'yes' | 'no', amount: number) =>
+  createStarsInvoice: (market_id: number, side: string, amount: number) =>
     apiClient
       .post<StarsInvoiceResponse>('/payments/stars/invoice', { market_id, side, amount })
       .then(r => r.data),

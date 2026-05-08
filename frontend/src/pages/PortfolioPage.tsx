@@ -8,7 +8,7 @@ import { useAppDispatch } from '@/hooks/useStore'
 import { setUser } from '@/store/slices/authSlice'
 import {
   Wallet, TrendingUp, CheckCircle, XCircle, Clock, Ban,
-  Users, Star, Gift, Copy, Check, Ticket, ChevronRight,
+  Users, Gift, Copy, Check, Ticket,
 } from 'lucide-react'
 import type { Bet, BetStatus } from '@/types'
 import {
@@ -98,7 +98,6 @@ function ReferralSection() {
   if (isLoading) return <div className="card p-6 h-40 animate-pulse" />
 
   const activeCount = info?.active_referral_count ?? 0
-  const nextMs = info?.next_milestone
 
   return (
     <div className="card p-6 mb-8">

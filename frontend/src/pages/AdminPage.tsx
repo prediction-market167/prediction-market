@@ -21,11 +21,6 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: 'bg-no/20 text-no border-no/30',
 }
 
-const TRANSLATION_BADGE: Record<string, string> = {
-  done: 'bg-yes/20 text-yes border-yes/30',
-  pending: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  failed: 'bg-no/20 text-no border-no/30',
-}
 
 const TIER_COLORS: Record<QuestionTier, string> = {
   free: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
