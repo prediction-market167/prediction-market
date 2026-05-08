@@ -5,14 +5,14 @@ import { format } from 'date-fns'
 import {
   Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
   Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet,
-  Zap, Bell, AlertTriangle, Send,
+  Zap, Bell, AlertTriangle, Send, Settings,
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
 import questionsApi from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
 
-type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications'
+type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings'
 
 const MIN_PARTICIPANTS = 20
 
@@ -859,6 +859,66 @@ function NotificationsTab() {
   )
 }
 
+// ─── Settings Tab ────────────────────────────────────────────────────────────
+
+function SettingsTab() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [rate, setRate] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  const { data } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: adminApi.getSettings,
+  })
+
+  const saveMut = useMutation({
+    mutationFn: () => adminApi.updateSettings(Number(rate)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      qc.invalidateQueries({ queryKey: ['platform-settings'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    },
+  })
+
+  const currentRate = data?.stars_to_ton_rate ?? 100
+  const displayRate = rate || String(currentRate)
+
+  return (
+    <div className="max-w-sm space-y-5">
+      <div>
+        <p className="text-sm font-black text-ink-100 mb-1">{t('admin.settings.title')}</p>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-ink-400 mb-1">
+          {t('admin.settings.starsToTonRate')}
+        </label>
+        <input
+          type="number"
+          min={1}
+          value={displayRate}
+          onChange={e => { setRate(e.target.value); setSaved(false) }}
+          className="input-dark w-full"
+        />
+        <p className="text-xs text-ink-600 mt-1">{t('admin.settings.rateHint')}</p>
+      </div>
+      <button
+        onClick={() => saveMut.mutate()}
+        disabled={saveMut.isPending || !rate || Number(rate) <= 0}
+        className="btn-primary text-sm px-6 py-2.5 flex items-center gap-2 disabled:opacity-40"
+      >
+        {saveMut.isPending
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.settings.saving')}</>
+          : saved
+            ? <><CheckCircle className="w-4 h-4 text-yes" />{t('admin.settings.saved')}</>
+            : t('admin.settings.save')
+        }
+      </button>
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -876,6 +936,7 @@ export default function AdminPage() {
             { key: 'users', icon: Users, label: t('admin.tabs.users') },
             { key: 'jackpot', icon: Zap, label: t('admin.tabs.jackpot') },
             { key: 'notifications', icon: Bell, label: t('admin.tabs.notifications') },
+            { key: 'settings', icon: Settings, label: t('admin.tabs.settings') },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -895,6 +956,7 @@ export default function AdminPage() {
         {tab === 'users' && <UsersTab />}
         {tab === 'jackpot' && <JackpotTab />}
         {tab === 'notifications' && <NotificationsTab />}
+        {tab === 'settings' && <SettingsTab />}
       </div>
     </div>
   )

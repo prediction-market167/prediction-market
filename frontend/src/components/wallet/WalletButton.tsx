@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Copy, LogOut, ArrowDownToLine, Check, ChevronDown, X } from 'lucide-react'
 import { useTonWallet } from '@/hooks/useTonWallet'
 import { usersApi } from '@/api/users'
@@ -19,6 +20,7 @@ function truncate(addr: string) {
 }
 
 function DepositModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const { data, isLoading, error } = useQuery({
@@ -39,7 +41,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <TonIcon className="w-5 h-5 text-brand-cyan" />
-            <h2 className="text-lg font-black text-ink-100">Deposit TON</h2>
+            <h2 className="text-lg font-black text-ink-100">{t('wallet.deposit')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -73,7 +75,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
                 className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-brand-cyan hover:text-white transition-colors"
               >
                 {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Copied!' : 'Copy address'}
+                {copied ? t('wallet.copied') : t('wallet.copyAddress')}
               </button>
             </div>
 
@@ -101,6 +103,7 @@ function DepositModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function WalletButton() {
+  const { t } = useTranslation()
   const { address, connect, disconnect } = useTonWallet()
   const token = useAppSelector((s) => s.auth.token)
   const [open, setOpen] = useState(false)
@@ -116,7 +119,6 @@ export default function WalletButton() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Only render when the user is logged in
   if (!token) return null
 
   const copyAddress = () => {
@@ -133,7 +135,7 @@ export default function WalletButton() {
         className="flex items-center gap-1.5 bg-surface-700 border border-surface-600 hover:border-brand-cyan/50 text-ink-400 hover:text-brand-cyan px-3 py-1.5 rounded-xl text-sm font-semibold transition-all duration-150"
       >
         <TonIcon className="w-3.5 h-3.5" />
-        Connect TON Wallet
+        {t('wallet.connect')}
       </button>
     )
   }
@@ -161,14 +163,14 @@ export default function WalletButton() {
               ) : (
                 <Copy className="w-3.5 h-3.5" />
               )}
-              {copied ? 'Copied!' : 'Copy address'}
+              {copied ? t('wallet.copied') : t('wallet.copyAddress')}
             </button>
             <button
               onClick={() => { setShowDeposit(true); setOpen(false) }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-400 hover:text-ink-100 hover:bg-surface-700 transition-colors"
             >
               <ArrowDownToLine className="w-3.5 h-3.5" />
-              Deposit TON
+              {t('wallet.deposit')}
             </button>
             <div className="my-1 border-t border-surface-600" />
             <button
@@ -176,7 +178,7 @@ export default function WalletButton() {
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-no/70 hover:text-no hover:bg-no/10 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              Disconnect
+              {t('wallet.disconnect')}
             </button>
           </div>
         )}

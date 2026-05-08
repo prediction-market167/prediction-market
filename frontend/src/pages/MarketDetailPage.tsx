@@ -2,17 +2,19 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
+import { betsApi } from '@/api/bets'
+import { authApi } from '@/api/auth'
 import { useAppSelector } from '@/hooks/useStore'
 import {
-  TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy, Wallet,
-  Eye, EyeOff, Loader2
+  TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
+  Eye, EyeOff, Loader2, Wallet,
 } from 'lucide-react'
 import type { BetSide } from '@/types'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
+type PaymentMethod = 'balance' | 'stars'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 20
@@ -21,7 +23,6 @@ const BET_AMOUNT = 100
 
 const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']
 
-// Option style by index
 const OPTION_COLORS = [
   { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-emerald-500/40 hover:text-emerald-400/70' },
   { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-rose-500/40 hover:text-rose-400/70' },
@@ -31,25 +32,15 @@ const OPTION_COLORS = [
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
-function TonIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L2.5 8.5L12 22L21.5 8.5L12 2Z" />
-      <path d="M2.5 8.5L12 14L21.5 8.5" stroke="rgba(0,0,0,0.25)" strokeWidth="0.5" fill="none" />
-    </svg>
-  )
-}
-
 export default function MarketDetailPage() {
   const { t, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const token = useAppSelector((s) => s.auth.token)
-  const walletAddress = useTonAddress()
-  const [tonConnectUI] = useTonConnectUI()
 
   const [selectedOption, setSelectedOption] = useState<number>(0)
   const [paymentState, setPaymentState] = useState<PaymentState>('idle')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stars')
   const [errorMsg, setErrorMsg] = useState('')
   const [placedBetId, setPlacedBetId] = useState<number | null>(null)
 
@@ -59,10 +50,18 @@ export default function MarketDetailPage() {
     refetchInterval: 10_000,
   })
 
+  const { data: me } = useQuery({
+    queryKey: ['me'],
+    queryFn: authApi.me,
+    enabled: !!token,
+  })
+
+  const userBalance = Number(me?.balance ?? 0)
+  const canPayBalance = userBalance >= BET_AMOUNT
+
   const isQuiz = !!market?.tier
   const isDarkPool = isQuiz && market?.status === 'open' && !market?.is_revealed
 
-  // Get options in current language
   const lang = i18n.language.split('-')[0]
   const localizedOptions = useMemo(() => {
     if (!market?.options) return null
@@ -102,7 +101,7 @@ export default function MarketDetailPage() {
     setPaymentState('error')
   }, [id, queryClient, t])
 
-  const handlePlaceBet = useCallback(async () => {
+  const handleStarsBet = useCallback(async () => {
     setErrorMsg('')
     setPaymentState('creating')
 
@@ -134,6 +133,24 @@ export default function MarketDetailPage() {
       }
     })
   }, [id, side, pollVerify, t])
+
+  const handleBalanceBet = useCallback(async () => {
+    setErrorMsg('')
+    setPaymentState('verifying')
+    try {
+      const bet = await betsApi.place({ market_id: Number(id), side, amount: BET_AMOUNT })
+      setPlacedBetId(bet.id)
+      setPaymentState('success')
+      queryClient.invalidateQueries({ queryKey: ['market', id] })
+      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.detail ?? t('market.errors.betFailed'))
+      setPaymentState('error')
+    }
+  }, [id, side, queryClient, t])
+
+  const handleSubmit = paymentMethod === 'balance' ? handleBalanceBet : handleStarsBet
 
   const resetPayment = () => {
     setPaymentState('idle')
@@ -184,7 +201,6 @@ export default function MarketDetailPage() {
           <p className="text-sm text-ink-400 leading-relaxed mb-6">{market.description}</p>
         )}
 
-        {/* Dark pool or probability display */}
         {isDarkPool ? (
           <div className="mb-6 rounded-xl p-5 bg-surface-700 border border-surface-600">
             <div className="flex items-center gap-3 mb-3">
@@ -236,7 +252,6 @@ export default function MarketDetailPage() {
           )
         )}
 
-        {/* Revealed quiz result */}
         {isQuiz && market.is_revealed && market.correct_option_idx != null && localizedOptions && (
           <div className="mb-6 rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30">
             <div className="flex items-center gap-2 mb-2">
@@ -249,7 +264,6 @@ export default function MarketDetailPage() {
           </div>
         )}
 
-        {/* Participant pool status — only when not in dark pool */}
         {market.status === 'open' && !isDarkPool && (
           <div className={`mb-6 rounded-xl p-4 border transition-all duration-500 ${
             isPoolActive ? 'bg-yes/10 border-yes/30' : 'bg-surface-700 border-surface-600'
@@ -315,26 +329,8 @@ export default function MarketDetailPage() {
         </div>
       )}
 
-      {/* Logged in but no TON wallet */}
-      {token && !walletAddress && market.status === 'open' && (
-        <div className="card border-gradient p-6 text-center">
-          <div className="w-12 h-12 rounded-full bg-brand-cyan/15 flex items-center justify-center mx-auto mb-4">
-            <TonIcon className="w-6 h-6 text-brand-cyan" />
-          </div>
-          <h3 className="text-base font-bold text-ink-100 mb-1">{t('market.connectWalletTitle')}</h3>
-          <p className="text-sm text-ink-400 mb-5">{t('market.connectWalletDesc')}</p>
-          <button
-            onClick={() => tonConnectUI.openModal()}
-            className="btn-primary px-6 py-2.5 shadow-glow-cyan flex items-center gap-2 mx-auto"
-          >
-            <TonIcon className="w-4 h-4" />
-            {t('market.connectWalletBtn')}
-          </button>
-        </div>
-      )}
-
       {/* Betting panel */}
-      {token && walletAddress && market.status === 'open' && (
+      {token && market.status === 'open' && (
         <div className="card p-6">
           {paymentState === 'success' ? (
             <div className="text-center py-4">
@@ -351,15 +347,9 @@ export default function MarketDetailPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-ink-100">
-                  {isQuiz ? t('game.pickAnswer') : t('market.placeABet')}
-                </h2>
-                <div className="flex items-center gap-1.5 text-xs text-ink-600">
-                  <Wallet className="w-3 h-3 text-brand-cyan" />
-                  <span className="font-mono text-brand-cyan">{walletAddress.slice(0, 4)}…{walletAddress.slice(-4)}</span>
-                </div>
-              </div>
+              <h2 className="text-lg font-bold text-ink-100 mb-5">
+                {isQuiz ? t('game.pickAnswer') : t('market.placeABet')}
+              </h2>
 
               {/* Quiz option buttons OR yes/no buttons */}
               {isQuiz && localizedOptions ? (
@@ -415,6 +405,50 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
+              {/* Payment method selector */}
+              <div className="mb-4">
+                <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
+                  {t('payment.chooseMethod')}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod('balance')}
+                    disabled={isBusy || !canPayBalance}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                      paymentMethod === 'balance'
+                        ? 'bg-brand-cyan/10 border-brand-cyan/50 text-brand-cyan'
+                        : 'border-surface-600 text-ink-400 hover:border-surface-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Wallet className="w-3.5 h-3.5" />
+                      {t('payment.withBalance')}
+                    </div>
+                    <p className="text-xs font-normal opacity-70">
+                      {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod('stars')}
+                    disabled={isBusy}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                      paymentMethod === 'stars'
+                        ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
+                        : 'border-surface-600 text-ink-400 hover:border-surface-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Star className="w-3.5 h-3.5" />
+                      {t('payment.withStars')}
+                    </div>
+                    <p className="text-xs font-normal opacity-70">Telegram Stars</p>
+                  </button>
+                </div>
+                {paymentMethod === 'balance' && !canPayBalance && (
+                  <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
+                )}
+              </div>
+
               {/* Fixed bet amount */}
               <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
@@ -438,8 +472,8 @@ export default function MarketDetailPage() {
               )}
 
               <button
-                onClick={handlePlaceBet}
-                disabled={isBusy}
+                onClick={handleSubmit}
+                disabled={isBusy || (paymentMethod === 'balance' && !canPayBalance)}
                 className="w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 bg-brand-cyan hover:bg-brand-cyan/90 text-white shadow-glow-cyan"
               >
                 {paymentState === 'creating' && (
@@ -449,7 +483,7 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.confirmingBet')}</>
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
                   <>

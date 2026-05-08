@@ -44,6 +44,10 @@ export interface JackpotHistoryEntry {
   created_at: string
 }
 
+export interface AdminSettings {
+  stars_to_ton_rate: number
+}
+
 const adminApi = {
   listMarkets: (status?: MarketStatus) =>
     apiClient.get<Market[]>('/admin/markets', { params: status ? { status } : {} }).then(r => r.data),
@@ -80,6 +84,12 @@ const adminApi = {
 
   broadcast: (message: string) =>
     apiClient.post<{ sent: number; total: number }>('/admin/broadcast', { message }).then(r => r.data),
+
+  getSettings: () =>
+    apiClient.get<AdminSettings>('/admin/settings').then(r => r.data),
+
+  updateSettings: (stars_to_ton_rate: number) =>
+    apiClient.patch<AdminSettings>('/admin/settings', { stars_to_ton_rate }).then(r => r.data),
 }
 
 export default adminApi

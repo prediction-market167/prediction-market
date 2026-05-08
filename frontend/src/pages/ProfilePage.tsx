@@ -1,12 +1,25 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { authApi } from '@/api/auth'
 import referralApi from '@/api/referral'
+import { usersApi } from '@/api/users'
+import type { WithdrawResult } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
+import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import {
   User as UserIcon, Star, Copy, Check, Ticket, CheckCircle, Gift, Users,
+  LogOut, ArrowUpFromLine, AlertCircle,
 } from 'lucide-react'
+
+function TonIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L2.5 8.5L12 22L21.5 8.5L12 2Z" />
+      <path d="M2.5 8.5L12 14L21.5 8.5" stroke="rgba(0,0,0,0.25)" strokeWidth="0.5" fill="none" />
+    </svg>
+  )
+}
 
 const TIER_COLORS: Record<string, string> = {
   easy: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
@@ -23,7 +36,13 @@ const MILESTONES = [
 export default function ProfilePage() {
   const { t } = useTranslation()
   const token = useAppSelector((s) => s.auth.token)
+  const queryClient = useQueryClient()
+  const walletAddress = useTonAddress()
+  const [tonConnectUI] = useTonConnectUI()
   const [copied, setCopied] = useState(false)
+  const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [withdrawResult, setWithdrawResult] = useState<WithdrawResult | null>(null)
+  const [withdrawError, setWithdrawError] = useState(false)
 
   const { data: user } = useQuery({
     queryKey: ['me'],
@@ -35,6 +54,25 @@ export default function ProfilePage() {
     queryKey: ['referral-info'],
     queryFn: referralApi.info,
     enabled: !!token,
+  })
+
+  const { data: settings } = useQuery({
+    queryKey: ['platform-settings'],
+    queryFn: usersApi.platformSettings,
+    enabled: !!token,
+  })
+
+  const withdrawMut = useMutation({
+    mutationFn: (stars: number) => usersApi.withdraw(stars),
+    onSuccess: (data) => {
+      setWithdrawResult(data)
+      setWithdrawError(false)
+      setWithdrawAmount('')
+      queryClient.invalidateQueries({ queryKey: ['me'] })
+    },
+    onError: () => {
+      setWithdrawError(true)
+    },
   })
 
   const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
@@ -50,6 +88,17 @@ export default function ProfilePage() {
   }
 
   const activeCount = referral?.active_referral_count ?? 0
+  const userBalance = Number(user?.balance ?? 0)
+  const rate = settings?.stars_to_ton_rate ?? 100
+  const parsedAmount = Number(withdrawAmount)
+  const tonAmount = parsedAmount > 0 && rate > 0 ? (parsedAmount / rate).toFixed(4) : null
+
+  const handleWithdraw = () => {
+    if (!parsedAmount || parsedAmount <= 0) return
+    setWithdrawError(false)
+    setWithdrawResult(null)
+    withdrawMut.mutate(parsedAmount)
+  }
 
   return (
     <div className="animate-slide-up max-w-lg mx-auto">
@@ -73,10 +122,119 @@ export default function ProfilePage() {
             </p>
             <p className="text-xl font-black text-brand-cyan flex items-center gap-1">
               <Star className="w-4 h-4" />
-              {Number(user?.balance ?? 0).toLocaleString()}
+              {userBalance.toLocaleString()}
             </p>
           </div>
         </div>
+      </div>
+
+      {/* TON Wallet & Withdrawal */}
+      <div className="card p-6 mb-5">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-brand-cyan/20 rounded-xl flex items-center justify-center">
+            <TonIcon className="w-4 h-4 text-brand-cyan" />
+          </div>
+          <h2 className="font-black text-ink-100 text-base">{t('wallet.title')}</h2>
+        </div>
+
+        {!walletAddress ? (
+          <div className="text-center py-2">
+            <p className="text-sm text-ink-400 mb-4">{t('wallet.noWalletDesc')}</p>
+            <button
+              onClick={() => tonConnectUI.openModal()}
+              className="btn-primary px-6 py-2.5 flex items-center gap-2 mx-auto text-sm"
+            >
+              <TonIcon className="w-4 h-4" />
+              {t('wallet.connect')}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Connected address row */}
+            <div className="flex items-center justify-between bg-surface-700 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2">
+                <TonIcon className="w-3.5 h-3.5 text-brand-cyan" />
+                <span className="text-sm font-mono text-brand-cyan">
+                  {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                </span>
+              </div>
+              <button
+                onClick={() => tonConnectUI.disconnect()}
+                className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-no transition-colors"
+              >
+                <LogOut className="w-3 h-3" />
+                {t('wallet.disconnect')}
+              </button>
+            </div>
+
+            {/* Withdraw form */}
+            <div>
+              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
+                {t('wallet.amountLabel')}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={userBalance}
+                value={withdrawAmount}
+                onChange={e => { setWithdrawAmount(e.target.value); setWithdrawResult(null); setWithdrawError(false) }}
+                className="input-dark w-full"
+                placeholder="0"
+              />
+            </div>
+
+            <div className="bg-surface-700 rounded-xl px-4 py-3 flex justify-between items-center">
+              <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
+                {t('wallet.youReceive')}
+              </span>
+              <span className="text-sm font-black text-brand-cyan">
+                {tonAmount ? `${tonAmount} TON` : '—'}
+              </span>
+            </div>
+
+            <p className="text-xs text-ink-600">{t('wallet.rate', { rate })}</p>
+
+            {withdrawResult?.status === 'pending' && (
+              <div className="rounded-xl p-4 bg-yes/10 border border-yes/30">
+                <p className="text-sm font-black text-yes">{t('wallet.pendingTitle')}</p>
+                <p className="text-xs text-ink-300 mt-1">
+                  {t('wallet.pendingDesc', {
+                    stars: withdrawResult.amount_stars,
+                    ton: Number(withdrawResult.amount_ton).toFixed(4),
+                  })}
+                </p>
+              </div>
+            )}
+
+            {withdrawError && (
+              <div className="rounded-xl p-4 bg-no/10 border border-no/30 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-no flex-shrink-0" />
+                <p className="text-sm text-no">{t('wallet.errorTitle')}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleWithdraw}
+              disabled={
+                !parsedAmount ||
+                parsedAmount <= 0 ||
+                parsedAmount > userBalance ||
+                withdrawMut.isPending
+              }
+              className="w-full btn-primary py-3 text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {withdrawMut.isPending ? (
+                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('wallet.withdrawing')}</>
+              ) : (
+                <><ArrowUpFromLine className="w-4 h-4" /> {t('wallet.withdrawBtn', { stars: parsedAmount || 0 })}</>
+              )}
+            </button>
+
+            {parsedAmount > userBalance && (
+              <p className="text-xs text-no text-center">{t('wallet.insufficientBalance')}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Referral card */}

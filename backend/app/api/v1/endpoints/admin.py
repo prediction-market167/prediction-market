@@ -241,6 +241,43 @@ async def admin_update_user(
     return user
 
 
+# ─── Platform Settings ────────────────────────────────────────────────────────
+
+class SettingsOut(BaseModel):
+    stars_to_ton_rate: Decimal
+
+
+class SettingsUpdate(BaseModel):
+    stars_to_ton_rate: Decimal | None = None
+
+
+@router.get("/settings", response_model=SettingsOut)
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    result = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = result.scalar_one_or_none()
+    return SettingsOut(stars_to_ton_rate=funds.stars_to_ton_rate if funds else Decimal("100"))
+
+
+@router.patch("/settings", response_model=SettingsOut)
+async def update_settings(
+    body: SettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    result = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = result.scalar_one_or_none()
+    if not funds:
+        raise HTTPException(status_code=404, detail="System funds not initialised")
+    if body.stars_to_ton_rate is not None:
+        if body.stars_to_ton_rate <= 0:
+            raise HTTPException(status_code=400, detail="Rate must be positive")
+        funds.stars_to_ton_rate = body.stars_to_ton_rate
+    return SettingsOut(stars_to_ton_rate=funds.stars_to_ton_rate)
+
+
 # ─── Jackpot ─────────────────────────────────────────────────────────────────
 
 class JackpotCriteria(BaseModel):
