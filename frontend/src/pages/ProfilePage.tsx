@@ -37,9 +37,14 @@ export default function ProfilePage() {
     enabled: !!token,
   })
 
+  const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
+  const referralLink = tgUserId
+    ? `https://t.me/predictmarketa_bot?start=ref_${tgUserId}`
+    : (referral?.referral_link ?? '')
+
   const handleCopy = () => {
-    if (!referral?.referral_link) return
-    navigator.clipboard.writeText(referral.referral_link)
+    if (!referralLink) return
+    navigator.clipboard.writeText(referralLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -110,7 +115,7 @@ export default function ProfilePage() {
         </p>
         <div className="flex items-center gap-2 bg-surface-700 rounded-xl px-3 py-2.5 mb-5">
           <p className="flex-1 text-xs text-brand-cyan font-mono truncate">
-            {referral?.referral_link ?? '—'}
+            {referralLink || '—'}
           </p>
           <button
             onClick={handleCopy}

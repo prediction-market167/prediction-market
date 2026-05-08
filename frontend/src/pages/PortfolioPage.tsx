@@ -88,9 +88,14 @@ function ReferralSection() {
     queryFn: referralApi.info,
   })
 
+  const tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id
+  const referralLink = tgUserId
+    ? `https://t.me/predictmarketa_bot?start=ref_${tgUserId}`
+    : (info?.referral_link ?? '')
+
   const handleCopy = () => {
-    if (!info?.referral_link) return
-    navigator.clipboard.writeText(info.referral_link)
+    if (!referralLink) return
+    navigator.clipboard.writeText(referralLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -136,7 +141,7 @@ function ReferralSection() {
         </p>
         <div className="flex items-center gap-2 bg-surface-700 rounded-xl px-3 py-2.5">
           <p className="flex-1 text-xs text-brand-cyan font-mono truncate">
-            {info?.referral_link ?? '—'}
+            {referralLink || '—'}
           </p>
           <button
             onClick={handleCopy}
