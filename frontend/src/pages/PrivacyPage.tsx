@@ -128,7 +128,8 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-surface-600/50 text-xs text-ink-600 text-center">
-          © 2026 Quiz Star · All rights reserved
+          © 2026 Quiz Star · All rights reserved ·{' '}
+          <Link to="/terms" className="hover:text-ink-400 transition-colors">Terms of Service</Link>
         </div>
       </div>
     </div>

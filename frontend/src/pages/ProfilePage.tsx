@@ -390,10 +390,14 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-      {/* Footer link */}
-      <div className="text-center pb-2">
+      {/* Footer links */}
+      <div className="flex items-center justify-center gap-4 pb-2">
         <Link to="/privacy" className="text-xs text-ink-600 hover:text-ink-400 transition-colors">
           Privacy Policy
+        </Link>
+        <span className="text-ink-700">·</span>
+        <Link to="/terms" className="text-xs text-ink-600 hover:text-ink-400 transition-colors">
+          Terms of Service
         </Link>
       </div>
     </div>
