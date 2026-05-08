@@ -125,7 +125,7 @@ async def place_bet(
     if current_user.is_blocked:
         raise HTTPException(status_code=403, detail="account_blocked")
 
-    await check_bet_rate_limit(current_user.id, db)
+    await check_bet_rate_limit(current_user.telegram_id, current_user.id, db)
 
     result = await db.execute(select(Market).where(Market.id == bet_in.market_id))
     market = result.scalar_one_or_none()
