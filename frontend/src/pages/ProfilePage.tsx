@@ -125,10 +125,10 @@ export default function ProfilePage() {
   return (
     <div className="animate-slide-up max-w-lg mx-auto">
       {/* User card */}
-      <div className="card p-6 mb-5">
+      <div className="card-glow mb-5">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-glow-cyan flex-shrink-0">
-            <UserIcon className="w-7 h-7 text-white" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-gold flex items-center justify-center shadow-glow-gold flex-shrink-0">
+            <UserIcon className="w-7 h-7 text-surface-900" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-black text-ink-100 text-lg truncate">
@@ -142,14 +142,14 @@ export default function ProfilePage() {
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-0.5">
               {t('profile.balance')}
             </p>
-            <p className="text-xl font-black text-brand-cyan flex items-center gap-1">
+            <p className="text-xl font-black text-gold flex items-center gap-1">
               <Star className="w-4 h-4" />
               {userBalance.toLocaleString()}
             </p>
           </div>
         </div>
         {userBadge && (
-          <div className="mt-4 pt-4 border-t border-surface-700 flex items-center gap-3">
+          <div className="mt-4 pt-4 border-t border-surface-600 flex items-center gap-3">
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest">
               {t('leaderboard.yourBadge')}
             </p>
@@ -162,9 +162,9 @@ export default function ProfilePage() {
       </div>
 
       {/* TON Wallet & Withdrawal */}
-      <div className="card p-6 mb-5">
+      <div className="card mb-5">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 bg-brand-cyan/20 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-brand-purple/20 rounded-xl flex items-center justify-center">
             <TonIcon className="w-4 h-4 text-brand-cyan" />
           </div>
           <h2 className="font-black text-ink-100 text-base">{t('wallet.title')}</h2>
@@ -175,7 +175,7 @@ export default function ProfilePage() {
             <p className="text-sm text-ink-400 mb-4">{t('wallet.noWalletDesc')}</p>
             <button
               onClick={() => tonConnectUI.openModal()}
-              className="btn-primary px-6 py-2.5 flex items-center gap-2 mx-auto text-sm"
+              className="btn-secondary px-6 py-2.5 flex items-center gap-2 mx-auto text-sm"
             >
               <TonIcon className="w-4 h-4" />
               {t('wallet.connect')}
@@ -184,7 +184,7 @@ export default function ProfilePage() {
         ) : (
           <div className="space-y-4">
             {/* Connected address row */}
-            <div className="flex items-center justify-between bg-surface-700 rounded-xl px-4 py-3">
+            <div className="flex items-center justify-between bg-surface-700 border border-surface-600 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2">
                 <TonIcon className="w-3.5 h-3.5 text-brand-cyan" />
                 <span className="text-sm font-mono text-brand-cyan">
@@ -216,11 +216,11 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="bg-surface-700 rounded-xl px-4 py-3 flex justify-between items-center">
+            <div className="bg-surface-700 border border-surface-600 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
                 {t('wallet.youReceive')}
               </span>
-              <span className="text-sm font-black text-brand-cyan">
+              <span className="text-sm font-black text-gold">
                 {tonAmount ? `${tonAmount} TON` : '—'}
               </span>
             </div>
@@ -257,7 +257,7 @@ export default function ProfilePage() {
               className="w-full btn-primary py-3 text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {withdrawMut.isPending ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('wallet.withdrawing')}</>
+                <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('wallet.withdrawing')}</>
               ) : (
                 <><ArrowUpFromLine className="w-4 h-4" /> {t('wallet.withdrawBtn', { stars: parsedAmount || 0 })}</>
               )}
@@ -271,7 +271,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Referral card */}
-      <div className="card p-6 mb-5">
+      <div className="card mb-5">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 bg-brand-purple/20 rounded-xl flex items-center justify-center">
             <Users className="w-4 h-4 text-brand-purple" />
@@ -284,17 +284,17 @@ export default function ProfilePage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-surface-700 rounded-2xl p-4">
+          <div className="bg-surface-700 border border-surface-600 rounded-2xl p-4">
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
               {t('referral.activeFriends')}
             </p>
             <p className="text-2xl font-black text-ink-100">{activeCount}</p>
           </div>
-          <div className="bg-surface-700 rounded-2xl p-4">
+          <div className="bg-surface-700 border border-gold/20 rounded-2xl p-4">
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
               {t('referral.lifetimeEarnings')}
             </p>
-            <p className="text-2xl font-black text-yes">
+            <p className="text-2xl font-black text-gold">
               {Number(referral?.lifetime_earnings ?? 0).toLocaleString()} ⭐
             </p>
           </div>
@@ -304,8 +304,8 @@ export default function ProfilePage() {
         <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
           {t('referral.link')}
         </p>
-        <div className="flex items-center gap-2 bg-surface-700 rounded-xl px-3 py-2.5 mb-5">
-          <p className="flex-1 text-xs text-brand-cyan font-mono truncate">
+        <div className="flex items-center gap-2 bg-surface-700 border border-surface-600 rounded-xl px-3 py-2.5 mb-5">
+          <p className="flex-1 text-xs text-gold font-mono truncate">
             {referralLink || '—'}
           </p>
           <button
@@ -373,7 +373,7 @@ export default function ProfilePage() {
         )}
 
         {/* How it works */}
-        <div className="pt-4 border-t border-surface-700">
+        <div className="pt-4 border-t border-surface-600">
           <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest mb-3">
             {t('referral.howItWorks')}
           </p>

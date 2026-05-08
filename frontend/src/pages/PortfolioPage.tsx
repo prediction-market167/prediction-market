@@ -54,16 +54,16 @@ function buildOutcomePie(bets: Bet[], labels: Record<BetStatus, string>) {
   return [
     { name: labels.won, value: counts.won, color: '#10b981' },
     { name: labels.lost, value: counts.lost, color: '#ef4444' },
-    { name: labels.active, value: counts.active, color: '#00c8ff' },
-    { name: labels.cancelled, value: counts.cancelled, color: '#2a3550' },
+    { name: labels.active, value: counts.active, color: '#f5c518' },
+    { name: labels.cancelled, value: counts.cancelled, color: '#2e2458' },
   ].filter((d) => d.value > 0)
 }
 
 const tooltipStyle = {
-  backgroundColor: '#0d1424',
-  border: '1px solid #1a2540',
-  borderRadius: '0.75rem',
-  color: '#f0f4ff',
+  backgroundColor: '#0f0628',
+  border: '1px solid #261960',
+  borderRadius: '0.875rem',
+  color: '#f0e8ff',
   fontSize: '0.8125rem',
 }
 
@@ -100,12 +100,12 @@ function ReferralSection() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (isLoading) return <div className="card p-6 h-40 animate-pulse" />
+  if (isLoading) return <div className="card h-40 animate-pulse" />
 
   const activeCount = info?.active_referral_count ?? 0
 
   return (
-    <div className="card p-6 mb-8">
+    <div className="card mb-8">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-brand-purple/20 rounded-2xl flex items-center justify-center">
           <Users className="w-5 h-5 text-brand-purple" />
@@ -118,17 +118,17 @@ function ReferralSection() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="bg-surface-700 rounded-2xl p-4">
+        <div className="bg-surface-700 rounded-2xl p-4 border border-surface-600">
           <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
             {t('referral.activeFriends')}
           </p>
           <p className="text-2xl font-black text-ink-100">{activeCount}</p>
         </div>
-        <div className="bg-surface-700 rounded-2xl p-4">
+        <div className="bg-surface-700 rounded-2xl p-4 border border-gold/20">
           <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
             {t('referral.lifetimeEarnings')}
           </p>
-          <p className="text-2xl font-black text-yes">
+          <p className="text-2xl font-black text-gold">
             {Number(info?.lifetime_earnings ?? 0).toLocaleString()} ⭐
           </p>
         </div>
@@ -139,8 +139,8 @@ function ReferralSection() {
         <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
           {t('referral.link')}
         </p>
-        <div className="flex items-center gap-2 bg-surface-700 rounded-xl px-3 py-2.5">
-          <p className="flex-1 text-xs text-brand-cyan font-mono truncate">
+        <div className="flex items-center gap-2 bg-surface-700 border border-surface-600 rounded-xl px-3 py-2.5">
+          <p className="flex-1 text-xs text-gold font-mono truncate">
             {referralLink || '—'}
           </p>
           <button
@@ -210,7 +210,7 @@ function ReferralSection() {
       )}
 
       {/* How it works */}
-      <div className="mt-6 pt-5 border-t border-surface-700">
+      <div className="mt-6 pt-5 border-t border-surface-600">
         <p className="text-xs font-semibold text-ink-600 uppercase tracking-widest mb-3">
           {t('referral.howItWorks')}
         </p>
@@ -247,7 +247,7 @@ export default function PortfolioPage() {
     BetStatus,
     { label: string; textClass: string; bgClass: string; Icon: React.ElementType }
   > = {
-    active: { label: t('portfolio.status.active'), textClass: 'text-brand-cyan', bgClass: 'bg-brand-cyan/15', Icon: Clock },
+    active: { label: t('portfolio.status.active'), textClass: 'text-gold', bgClass: 'bg-gold/15', Icon: Clock },
     won: { label: t('portfolio.status.won'), textClass: 'text-yes', bgClass: 'bg-yes/15', Icon: CheckCircle },
     lost: { label: t('portfolio.status.lost'), textClass: 'text-no', bgClass: 'bg-no/15', Icon: XCircle },
     cancelled: { label: t('portfolio.status.cancelled'), textClass: 'text-ink-600', bgClass: 'bg-surface-700', Icon: Ban },
@@ -271,18 +271,18 @@ export default function PortfolioPage() {
 
   return (
     <div className="animate-slide-up">
-      <h1 className="text-3xl font-black text-ink-100 mb-8">{t('portfolio.title')}</h1>
+      <h1 className="text-3xl font-black text-gradient-gold mb-8">{t('portfolio.title')}</h1>
 
       {/* Stats */}
       {user && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-3 mb-8">
           {[
-            { label: t('portfolio.stats.balance'), value: `${Number(user.balance).toLocaleString()} ⭐`, Icon: Wallet, color: 'text-brand-cyan' },
+            { label: t('portfolio.stats.balance'), value: `${Number(user.balance).toLocaleString()} ⭐`, Icon: Wallet, color: 'text-gold' },
             { label: t('portfolio.stats.totalWagered'), value: `${totalWagered.toLocaleString()} ⭐`, Icon: TrendingUp, color: 'text-ink-200' },
             { label: t('portfolio.stats.totalBets'), value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
             { label: t('portfolio.stats.winRate'), value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
           ].map(({ label, value, Icon, color }) => (
-            <div key={label} className="card p-5">
+            <div key={label} className="card">
               <div className="flex items-center gap-2 mb-3">
                 <Icon className={`w-4 h-4 ${color}`} />
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-widest">
@@ -299,7 +299,7 @@ export default function PortfolioPage() {
       {bets && bets.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
           {/* P&L Area Chart */}
-          <div className="card p-6 lg:col-span-2">
+          <div className="card lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
@@ -336,23 +336,23 @@ export default function PortfolioPage() {
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#261960" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: '#4a5a7a', fontSize: 11 }}
+                  tick={{ fill: '#6b5fa0', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   interval="preserveStartEnd"
                 />
                 <YAxis
-                  tick={{ fill: '#4a5a7a', fontSize: 11 }}
+                  tick={{ fill: '#6b5fa0', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => `${v}⭐`}
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  cursor={{ stroke: '#243556', strokeWidth: 1 }}
+                  cursor={{ stroke: '#362585', strokeWidth: 1 }}
                   formatter={(v: number) => [`${v.toFixed(2)} ⭐`, t('portfolio.pnlLabel')]}
                 />
                 <Area
@@ -369,7 +369,7 @@ export default function PortfolioPage() {
           </div>
 
           {/* Outcome Donut */}
-          <div className="card p-6 flex flex-col">
+          <div className="card flex flex-col">
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-6">
               {t('portfolio.outcomes')}
             </p>
@@ -398,7 +398,7 @@ export default function PortfolioPage() {
                     iconType="circle"
                     iconSize={8}
                     formatter={(value) => (
-                      <span style={{ color: '#8a9cc0', fontSize: '0.75rem' }}>{value}</span>
+                      <span style={{ color: '#9d8fcc', fontSize: '0.75rem' }}>{value}</span>
                     )}
                   />
                 </PieChart>
@@ -419,12 +419,12 @@ export default function PortfolioPage() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card p-4 h-16 animate-pulse" />
+            <div key={i} className="card h-16 animate-pulse" />
           ))}
         </div>
       ) : !bets?.length ? (
-        <div className="card p-12 text-center">
-          <TrendingUp className="w-12 h-12 text-ink-800 mx-auto mb-4" />
+        <div className="card text-center py-12">
+          <TrendingUp className="w-12 h-12 text-ink-700 mx-auto mb-4" />
           <p className="text-ink-400 font-semibold">{t('portfolio.noBets')}</p>
           <p className="text-ink-600 text-sm mt-1">{t('portfolio.noBetsHint')}</p>
         </div>
@@ -434,7 +434,7 @@ export default function PortfolioPage() {
             const cfg = statusConfig[bet.status] ?? statusConfig.active
             const { Icon } = cfg
             return (
-              <div key={bet.id} className="card card-hover p-4 flex items-center justify-between">
+              <div key={bet.id} className="card card-hover flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bgClass}`}>
                     <Icon className={`w-4 h-4 ${cfg.textClass}`} />

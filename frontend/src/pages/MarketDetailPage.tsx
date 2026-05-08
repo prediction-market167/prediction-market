@@ -9,7 +9,7 @@ import { authApi } from '@/api/auth'
 import { useAppSelector } from '@/hooks/useStore'
 import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
-  Eye, EyeOff, Loader2, Wallet, Gift,
+  Eye, EyeOff, Loader2, Wallet, Gift, Zap,
 } from 'lucide-react'
 import type { BetSide } from '@/types'
 import Confetti from '@/components/common/Confetti'
@@ -28,7 +28,7 @@ const OPTION_COLORS = [
   { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-emerald-500/40 hover:text-emerald-400/70' },
   { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-rose-500/40 hover:text-rose-400/70' },
   { active: 'bg-brand-purple/15 border-brand-purple text-brand-purple', inactive: 'border-surface-600 text-ink-400 hover:border-brand-purple/40' },
-  { active: 'bg-amber-500/15 border-amber-500 text-amber-400', inactive: 'border-surface-600 text-ink-400 hover:border-amber-500/40' },
+  { active: 'bg-gold/15 border-gold text-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold/40' },
 ]
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
@@ -164,7 +164,7 @@ export default function MarketDetailPage() {
   if (isLoading)
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-cyan border-t-transparent rounded-full animate-spin-slow" />
+        <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin-slow" />
       </div>
     )
 
@@ -187,13 +187,17 @@ export default function MarketDetailPage() {
     <div className="max-w-2xl mx-auto animate-slide-up">
       <Confetti active={paymentState === 'success'} />
       {/* Market info */}
-      <div className="card p-6 mb-5">
+      <div className="card mb-5">
         <div className="flex items-center gap-2 mb-4">
-          <span className="badge bg-yes/20 text-yes border border-yes/30">
+          <span className={`badge border ${
+            market.status === 'open'
+              ? 'bg-yes/20 text-yes border-yes/30'
+              : 'bg-surface-700 text-ink-500 border-surface-600'
+          }`}>
             {market.status.toUpperCase()}
           </span>
           {market.tier && (
-            <span className="badge bg-surface-700 text-ink-400 border border-surface-600">
+            <span className="badge bg-gold/10 text-gold border border-gold/30">
               {market.tier.toUpperCase()}
             </span>
           )}
@@ -220,7 +224,7 @@ export default function MarketDetailPage() {
               <div className="h-full rounded-full bg-gradient-to-r from-surface-500 to-surface-400 animate-pulse" style={{ width: '50%' }} />
             </div>
             <div className={`mt-3 flex items-center gap-2 text-xs font-semibold ${
-              market.pool_status === 'threshold_met' ? 'text-emerald-400' : 'text-amber-400'
+              market.pool_status === 'threshold_met' ? 'text-emerald-400' : 'text-gold'
             }`}>
               {market.pool_status === 'threshold_met' ? (
                 <><CheckCircle className="w-3.5 h-3.5" />{t('game.thresholdMet')}</>
@@ -296,7 +300,7 @@ export default function MarketDetailPage() {
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-surface-600 overflow-hidden">
-                  <div className="h-full rounded-full bg-brand-cyan transition-all duration-700 ease-out" style={{ width: `${progress * 100}%` }} />
+                  <div className="h-full rounded-full bg-gradient-gold transition-all duration-700 ease-out" style={{ width: `${progress * 100}%` }} />
                 </div>
                 <p className="text-xs text-ink-600 mt-2">
                   {t('market.poolNeeded', { count: MIN_PARTICIPANTS - participantCount })}
@@ -312,7 +316,7 @@ export default function MarketDetailPage() {
             { icon: Clock, label: t('market.closes'), value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
             { icon: Users, label: t('market.players'), value: isDarkPool ? '—' : `${participantCount}${isPoolActive ? ' ✓' : ''}` },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="bg-surface-700 rounded-xl p-3">
+            <div key={label} className="bg-surface-700 border border-surface-600 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Icon className="w-3.5 h-3.5 text-ink-600" />
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{label}</span>
@@ -325,9 +329,9 @@ export default function MarketDetailPage() {
 
       {/* Not logged in */}
       {!token && (
-        <div className="card border-gradient p-6 text-center">
+        <div className="card-glow text-center">
           <p className="text-ink-400 mb-4 text-sm">{t('market.signInToTrade')}</p>
-          <Link to="/login" className="btn-primary px-6 py-2.5 shadow-glow-cyan">
+          <Link to="/login" className="btn-primary px-6 py-2.5 shadow-glow-gold">
             {t('market.loginToTrade')}
           </Link>
         </div>
@@ -335,13 +339,13 @@ export default function MarketDetailPage() {
 
       {/* Betting panel */}
       {token && market.status === 'open' && (
-        <div className="card p-6">
+        <div className="card">
           {paymentState === 'success' ? (
             <div className="text-center py-4">
-              <div className="w-14 h-14 rounded-full bg-yes/20 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-7 h-7 text-yes" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-gold flex items-center justify-center mx-auto mb-4 shadow-glow-gold">
+                <Zap className="w-8 h-8 text-surface-900" />
               </div>
-              <h3 className="text-lg font-bold text-ink-100 mb-1">{t('market.betPlaced')}</h3>
+              <h3 className="text-lg font-bold text-gradient-gold mb-1">{t('market.betPlaced')}</h3>
               <p className="text-sm text-ink-400 mb-1">
                 {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: BET_AMOUNT })}
               </p>
@@ -427,7 +431,7 @@ export default function MarketDetailPage() {
                       disabled={isBusy || !canPayBalance}
                       className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
                         paymentMethod === 'balance'
-                          ? 'bg-brand-cyan/10 border-brand-cyan/50 text-brand-cyan'
+                          ? 'bg-gold/10 border-gold/50 text-gold'
                           : 'border-surface-600 text-ink-400 hover:border-surface-500'
                       }`}
                     >
@@ -444,7 +448,7 @@ export default function MarketDetailPage() {
                       disabled={isBusy}
                       className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
                         paymentMethod === 'stars'
-                          ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400'
+                          ? 'bg-gold/10 border-gold/50 text-gold'
                           : 'border-surface-600 text-ink-400 hover:border-surface-500'
                       }`}
                     >
@@ -461,19 +465,19 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
-              {/* Fixed bet amount — hidden for free tier (shown in free entry badge above) */}
+              {/* Fixed bet amount */}
               {!isFree && (
-                <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
+                <div className="bg-surface-700 border border-surface-600 rounded-xl p-4 mb-4 flex justify-between items-center">
                   <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
-                  <span className="text-sm font-black text-ink-100 flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                  <span className="text-sm font-black text-gold flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 fill-gold" />
                     {betAmount} ⭐ · {t('game.fixed')}
                   </span>
                 </div>
               )}
 
               {isQuiz && isDarkPool && (
-                <div className="bg-surface-700 rounded-xl p-4 mb-4 flex justify-between items-center">
+                <div className="bg-surface-700 border border-surface-600 rounded-xl p-4 mb-4 flex justify-between items-center">
                   <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.potentialPayoutLabel')}</span>
                   <span className="text-sm font-bold text-ink-500">{t('game.payoutRevealedAt55')}</span>
                 </div>
@@ -488,23 +492,23 @@ export default function MarketDetailPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isBusy || (!isFree && paymentMethod === 'balance' && !canPayBalance)}
-                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] flex items-center justify-center gap-2 bg-brand-cyan hover:bg-brand-cyan/90 text-white shadow-glow-cyan"
+                className="w-full btn-primary py-3.5 text-base font-black disabled:opacity-40 disabled:cursor-not-allowed gap-2"
               >
                 {paymentState === 'creating' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
+                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
                 )}
                 {paymentState === 'waiting' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
+                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-slow" /> {isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
+                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
                   isFree ? (
                     <><Gift className="w-4 h-4" />{t('game.submitFree')}</>
                   ) : (
                     <>
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="w-4 h-4 fill-surface-900 text-surface-900" />
                       {isQuiz
                         ? t('game.submitAnswer', { stars: betAmount, option: OPTION_LABELS[selectedOption] })
                         : t('market.payButton', { stars: betAmount, side: side.toUpperCase() })

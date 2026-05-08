@@ -4,6 +4,7 @@ const hi = {
     portfolio: 'पोर्टफोलियो',
     profile: 'प्रोफ़ाइल',
     admin: 'एडमिन',
+    home: 'होम',
     footer: '© 2026 Manifold · भविष्य में ट्रेड करें',
   },
   auth: {

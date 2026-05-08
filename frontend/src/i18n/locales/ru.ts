@@ -4,6 +4,7 @@ const ru = {
     portfolio: 'Портфель',
     profile: 'Профиль',
     admin: 'Админ',
+    home: 'Главная',
     footer: '© 2026 Manifold · Торгуйте будущим',
   },
   auth: {

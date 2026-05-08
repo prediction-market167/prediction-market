@@ -4,6 +4,7 @@ const en = {
     portfolio: 'Portfolio',
     profile: 'Profile',
     admin: 'Admin',
+    home: 'Home',
     footer: '© 2026 Manifold · Trade the future',
   },
   auth: {

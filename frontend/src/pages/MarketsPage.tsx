@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { marketsApi } from '@/api/markets'
 import MarketCard from '@/components/markets/MarketCard'
-import { Gift, Star, Flame, Gem, ArrowRight, Users } from 'lucide-react'
+import { Gift, Star, Flame, Gem, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 interface Tier {
@@ -19,6 +19,7 @@ interface Tier {
   accentBorder: string
   glow: string
   badge: string
+  glowColor: string
 }
 
 const TIERS: Tier[] = [
@@ -35,6 +36,7 @@ const TIERS: Tier[] = [
     accentBorder: 'border-emerald-500/40',
     glow: 'shadow-emerald-500/25',
     badge: 'FREE',
+    glowColor: 'rgba(16,185,129,0.4)',
   },
   {
     id: 'easy',
@@ -49,6 +51,7 @@ const TIERS: Tier[] = [
     accentBorder: 'border-sky-500/40',
     glow: 'shadow-sky-500/25',
     badge: 'EASY',
+    glowColor: 'rgba(14,165,233,0.4)',
   },
   {
     id: 'medium',
@@ -63,6 +66,7 @@ const TIERS: Tier[] = [
     accentBorder: 'border-orange-500/40',
     glow: 'shadow-orange-500/25',
     badge: 'MED',
+    glowColor: 'rgba(249,115,22,0.4)',
   },
   {
     id: 'hard',
@@ -77,20 +81,11 @@ const TIERS: Tier[] = [
     accentBorder: 'border-rose-500/40',
     glow: 'shadow-rose-500/25',
     badge: 'HARD',
+    glowColor: 'rgba(244,63,94,0.4)',
   },
 ]
 
-function ChoiceDots({ count, color }: { count: number; color: string }) {
-  return (
-    <div className="flex gap-1 mt-1">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={`w-2 h-2 rounded-full ${color}`} />
-      ))}
-    </div>
-  )
-}
-
-function TierCard({
+function TierTab({
   tier,
   active,
   liveCount,
@@ -101,60 +96,31 @@ function TierCard({
   liveCount: number
   onClick: () => void
 }) {
-  const { t } = useTranslation()
   const Icon = tier.icon
   return (
     <button
       onClick={onClick}
-      className={`relative group text-left w-full rounded-3xl p-px transition-all duration-300 ${
-        active ? `bg-gradient-to-br ${tier.gradient} shadow-2xl ${tier.glow}` : 'bg-surface-700 hover:bg-surface-600'
+      className={`relative flex-1 py-3 px-2 rounded-xl border-2 transition-all duration-200 text-center ${
+        active
+          ? `${tier.accentBorder} ${tier.accentBg}`
+          : 'border-surface-600 bg-surface-800 hover:border-surface-500'
       }`}
+      style={active ? { boxShadow: `0 0 16px ${tier.glowColor}` } : undefined}
     >
-      <div className={`rounded-[calc(1.5rem-1px)] p-5 h-full transition-all duration-300 ${
-        active ? 'bg-surface-900/90' : 'bg-surface-800 group-hover:bg-surface-750'
-      }`}>
-        <div className="flex items-start justify-between mb-4">
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-colors ${
-            active ? tier.accentBg : 'bg-surface-700'
-          }`}>
-            <Icon className={`w-5 h-5 transition-colors ${active ? tier.accentColor : 'text-ink-500'}`} />
-          </div>
-          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full tracking-wider transition-colors ${
-            active
-              ? `${tier.accentBg} ${tier.accentColor} border ${tier.accentBorder}`
-              : 'bg-surface-700 text-ink-600 border border-surface-600'
-          }`}>
-            {tier.badge}
-          </span>
-        </div>
-
-        <p className={`text-xl font-black mb-0.5 transition-colors ${active ? 'text-ink-100' : 'text-ink-400'}`}>
-          {tier.name}
-        </p>
-        <p className={`text-xs font-semibold mb-3 transition-colors ${active ? tier.accentColor : 'text-ink-600'}`}>
-          {tier.format}
-        </p>
-        <ChoiceDots count={tier.choiceCount} color={active ? tier.accentColor.replace('text-', 'bg-') : 'bg-surface-600'} />
-
-        <div className="flex items-end justify-between mt-4">
-          <div>
-            <p className={`text-2xl font-black leading-none transition-colors ${active ? 'text-ink-100' : 'text-ink-500'}`}>
-              {tier.stars === 0 ? 'FREE' : `${tier.stars} ⭐`}
-            </p>
-            <div className="flex items-center gap-1 mt-1">
-              <Users className={`w-3 h-3 ${active ? tier.accentColor : 'text-ink-700'}`} />
-              <span className={`text-xs font-medium transition-colors ${active ? 'text-ink-400' : 'text-ink-700'}`}>
-                {liveCount} {t('game.live')}
-              </span>
-            </div>
-          </div>
-          <div className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
-            active ? `${tier.accentBg} ${tier.accentColor}` : 'text-ink-700'
-          }`}>
-            <ArrowRight className="w-4 h-4" />
-          </div>
-        </div>
-      </div>
+      <Icon className={`w-5 h-5 mx-auto mb-1 ${active ? tier.accentColor : 'text-ink-600'}`} />
+      <p className={`text-xs font-black ${active ? tier.accentColor : 'text-ink-500'}`}>
+        {tier.badge}
+      </p>
+      {liveCount > 0 && (
+        <span className={`absolute -top-1.5 -right-1.5 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center ${
+          active ? `${tier.accentBg} ${tier.accentColor} border ${tier.accentBorder}` : 'bg-surface-700 text-ink-500'
+        }`}>
+          {liveCount}
+        </span>
+      )}
+      {active && (
+        <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 w-3/4 rounded-full bg-gradient-to-r ${tier.gradient}`} />
+      )}
     </button>
   )
 }
@@ -168,7 +134,6 @@ export default function MarketsPage() {
     queryFn: () => marketsApi.list({ tier: activeTier, limit: 50 }),
   })
 
-  // Count live per tier for the tier card display
   const { data: allMarkets = [] } = useQuery({
     queryKey: ['markets', 'all'],
     queryFn: () => marketsApi.list({ status: 'open', limit: 200 }),
@@ -177,20 +142,29 @@ export default function MarketsPage() {
   const liveCountByTier = (tierId: string) =>
     allMarkets.filter(m => m.tier === tierId && m.status === 'open').length
 
+  const activeTierData = TIERS.find(t => t.id === activeTier)!
+
   return (
     <div className="animate-slide-up">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-black text-ink-100 mb-1">
+      {/* Purple gradient hero banner */}
+      <div className="relative overflow-hidden rounded-2xl mb-6 p-5"
+        style={{
+          background: 'linear-gradient(135deg, #180d3d 0%, #261960 50%, #180d3d 100%)',
+          border: '1px solid rgba(168,85,247,0.3)',
+          boxShadow: '0 0 32px rgba(168,85,247,0.15)',
+        }}
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-purple/10 rounded-full blur-2xl pointer-events-none" />
+        <h1 className="text-2xl font-black text-gradient-gold mb-1">
           {t('game.compete')}
         </h1>
-        <p className="text-sm text-ink-600">{t('game.pickTier')}</p>
+        <p className="text-sm text-ink-500">{t('game.pickTier')}</p>
       </div>
 
-      {/* 4 Tier Cards — 2×2 grid */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-10">
+      {/* Tier filter tabs */}
+      <div className="flex gap-2 mb-6">
         {TIERS.map((tier) => (
-          <TierCard
+          <TierTab
             key={tier.id}
             tier={tier}
             active={activeTier === tier.id}
@@ -202,45 +176,57 @@ export default function MarketsPage() {
 
       {/* Active tier label */}
       <div className="flex items-center gap-3 mb-5">
-        {(() => {
-          const t_data = TIERS.find((t) => t.id === activeTier)!
-          const liveCount = liveCountByTier(activeTier)
-          return (
-            <>
-              <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${t_data.gradient}`} />
-              <h2 className="text-lg font-black text-ink-100">{t_data.name} {t('game.markets')}</h2>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t_data.accentBg} ${t_data.accentColor} border ${t_data.accentBorder}`}>
-                {liveCount} {t('game.live')}
-              </span>
-            </>
-          )
-        })()}
+        <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${activeTierData.gradient}`} />
+        <h2 className="text-lg font-black text-ink-100">{activeTierData.name} {t('game.markets')}</h2>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${activeTierData.accentBg} ${activeTierData.accentColor} border ${activeTierData.accentBorder}`}>
+            {liveCountByTier(activeTier)} {t('game.live')}
+          </span>
+          {activeTierData.stars > 0 && (
+            <span className="flex items-center gap-1 text-xs font-bold text-gold">
+              <Users className="w-3 h-3" />
+              {activeTierData.stars} ⭐
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Market list */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-3xl bg-surface-800 p-5 h-44 animate-pulse"
-              style={{ animationDelay: `${i * 60}ms` }}
+              className="rounded-2xl h-44 animate-pulse"
+              style={{
+                background: 'linear-gradient(135deg, #0f0628 0%, #180d3d 100%)',
+                border: '1px solid #261960',
+                animationDelay: `${i * 60}ms`,
+              }}
             >
-              <div className="h-3 bg-surface-700 rounded-full mb-4 w-14" />
-              <div className="h-4 bg-surface-700 rounded-2xl mb-2 w-full" />
-              <div className="h-4 bg-surface-700 rounded-2xl mb-6 w-3/4" />
-              <div className="h-1.5 bg-surface-700 rounded-full" />
+              <div className="h-1 rounded-t-2xl bg-gradient-to-r from-surface-600 to-surface-500" />
+              <div className="p-4">
+                <div className="h-3 bg-surface-700 rounded-full mb-4 w-14" />
+                <div className="h-4 bg-surface-700 rounded-xl mb-2 w-full" />
+                <div className="h-4 bg-surface-700 rounded-xl mb-6 w-3/4" />
+                <div className="h-1.5 bg-surface-700 rounded-full" />
+              </div>
             </div>
           ))}
         </div>
       ) : !markets.length ? (
-        <div className="text-center py-24 rounded-3xl bg-surface-800/50 border border-surface-700">
+        <div className="text-center py-20 rounded-2xl"
+          style={{
+            background: 'linear-gradient(135deg, #0f0628 0%, #180d3d 100%)',
+            border: '1px solid #261960',
+          }}
+        >
           <div className="text-5xl mb-4">🏆</div>
           <p className="text-ink-400 text-lg font-bold">{t('game.noMarkets')}</p>
           <p className="text-ink-700 text-sm mt-1">{t('game.noMarketsHint')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {markets.map((market, i) => (
             <div
               key={market.id}
