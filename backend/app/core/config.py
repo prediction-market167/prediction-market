@@ -45,8 +45,6 @@ class Settings(BaseSettings):
     WEBHOOK_URL: str | None = None
     TELEGRAM_WEBHOOK_SECRET: str | None = None
 
-    ANTHROPIC_API_KEY: str | None = None
-
     FIRST_SUPERUSER_EMAIL: str = "admin@predictionmarket.mn"
     FIRST_SUPERUSER_PASSWORD: str = "changeme123"
 

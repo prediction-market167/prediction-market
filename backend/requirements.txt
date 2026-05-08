@@ -36,9 +36,6 @@ httpx==0.28.1
 # Telegram Bot
 python-telegram-bot==21.9
 
-# AI Translation
-anthropic>=0.39.0
-
 # Excel parsing
 openpyxl>=3.1.2
 

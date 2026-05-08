@@ -22,11 +22,6 @@ const questionsApi = {
       .then(r => r.data)
   },
 
-  retranslate: (questionId: number) =>
-    apiClient
-      .post<Question>(`/admin/questions/${questionId}/translate`)
-      .then(r => r.data),
-
   triggerTier: (tier: QuestionTier) =>
     apiClient
       .post(`/admin/questions/trigger/${tier}`)

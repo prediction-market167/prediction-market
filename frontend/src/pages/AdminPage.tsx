@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import {
   Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
-  Upload, RefreshCw, Play, Trash2, Languages, FileSpreadsheet
+  Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload } from '@/api/admin'
 import questionsApi from '@/api/questions'
@@ -340,6 +340,29 @@ function UsersTab() {
 
 // ─── Questions Tab ────────────────────────────────────────────────────────────
 
+const SAMPLE_CSV_ROWS = [
+  // header
+  'tier,question_mn,question_en,question_ru,question_hi,option_a_mn,option_a_en,option_a_ru,option_a_hi,option_b_mn,option_b_en,option_b_ru,option_b_hi,option_c_mn,option_c_en,option_c_ru,option_c_hi,option_d_mn,option_d_en,option_d_ru,option_d_hi,correct_answer',
+  // free (2 options — c/d left empty)
+  'free,Дэлхийн хамгийн том далай юу вэ?,What is the largest ocean?,Какой океан самый большой?,सबसे बड़ा महासागर कौन सा है?,Номхон далай,Pacific Ocean,Тихий океан,प्रशांत महासागर,Энэтхэгийн далай,Indian Ocean,Индийский океан,हिंद महासागर,,,,,,,,,,a',
+  // easy (2 options)
+  'easy,Монгол улс ардчилсан орон мөн үү?,Is Mongolia a democratic country?,Монголия — демократическая страна?,क्या मंगोलिया लोकतांत्रिक देश है?,Тийм,True,Да,हाँ,Үгүй,False,Нет,नहीं,,,,,,,,,,a',
+  // medium (2 options)
+  'medium,Монгол улсын нийслэл хот аль нь вэ?,What is the capital of Mongolia?,Какова столица Монголии?,मंगोलिया की राजधानी?,Улаанбаатар,Ulaanbaatar,Улан-Батор,उलानबाटार,Дархан,Darkhan,Дархан,दारखान,,,,,,,,,,a',
+  // hard (4 options)
+  'hard,Дэлхийн хамгийн өндөр уул?,World\'s highest mountain?,Самая высокая гора в мире?,दुनिया का सबसे ऊँचा पर्वत?,Эверест,Everest,Эверест,एवरेस्ट,К2,K2,K2,K2,Канченжунга,Kangchenjunga,Канченджанга,कंचनजंगा,Лхоцзе,Lhotse,Лхоцзе,ल्होत्से,a',
+].join('\n')
+
+function downloadSampleCsv() {
+  const blob = new Blob([SAMPLE_CSV_ROWS], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'questions_sample.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function QuestionsTab() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -370,11 +393,6 @@ function QuestionsTab() {
     },
   })
 
-  const translateMut = useMutation({
-    mutationFn: questionsApi.retranslate,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'questions'] }),
-  })
-
   const triggerMut = useMutation({
     mutationFn: questionsApi.triggerTier,
     onSuccess: () => {
@@ -400,8 +418,8 @@ function QuestionsTab() {
 
   return (
     <div>
-      {/* Upload area */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -412,10 +430,13 @@ function QuestionsTab() {
           {t('admin.questions.upload')}
         </button>
 
-        <span className="text-xs text-ink-600 flex items-center gap-1">
-          <FileSpreadsheet className="w-3.5 h-3.5" />
-          {t('admin.questions.uploadFormat')}
-        </span>
+        <button
+          onClick={downloadSampleCsv}
+          className="text-sm px-4 py-2 rounded-xl flex items-center gap-2 bg-surface-700 border border-surface-600 text-ink-300 hover:text-ink-100 hover:border-surface-500 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          {t('admin.questions.downloadSample')}
+        </button>
 
         <div className="ml-auto flex gap-2">
           {TIERS.map(tier => (
@@ -444,11 +465,17 @@ function QuestionsTab() {
         </div>
       )}
 
-      {/* CSV format hint */}
-      <div className="mb-5 rounded-xl p-4 bg-surface-800 border border-surface-700 text-xs text-ink-500">
-        <p className="font-semibold text-ink-400 mb-1">{t('admin.questions.csvFormatTitle')}</p>
-        <code className="text-brand-cyan">tier,question,option1,option2[,option3,option4],correct</code>
-        <p className="mt-1">{t('admin.questions.csvFormatDesc')}</p>
+      {/* Column format reference */}
+      <div className="mb-5 rounded-xl p-4 bg-surface-800 border border-surface-700 text-xs">
+        <p className="font-semibold text-ink-300 mb-2">{t('admin.questions.csvFormatTitle')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-ink-500">
+          <div><span className="text-brand-cyan font-mono">tier</span> — free / easy / medium / hard</div>
+          <div><span className="text-brand-cyan font-mono">correct_answer</span> — a / b / c / d</div>
+          <div><span className="text-brand-cyan font-mono">question_mn/en/ru/hi</span> — {t('admin.questions.csvRequired')}</div>
+          <div><span className="text-brand-cyan font-mono">option_a_mn/en/ru/hi</span> — {t('admin.questions.csvRequired')}</div>
+          <div><span className="text-brand-cyan font-mono">option_b_mn/en/ru/hi</span> — {t('admin.questions.csvRequired')}</div>
+          <div><span className="text-brand-cyan font-mono">option_c/d_mn/en/ru/hi</span> — {t('admin.questions.csvHardOnly')}</div>
+        </div>
       </div>
 
       <p className="text-sm text-ink-400 mb-4">{t('admin.questions.count', { count: questions.length })}</p>
@@ -458,7 +485,10 @@ function QuestionsTab() {
       ) : questions.length === 0 ? (
         <div className="text-center py-16 rounded-2xl bg-surface-800/50 border border-surface-700">
           <FileSpreadsheet className="w-10 h-10 text-ink-700 mx-auto mb-3" />
-          <p className="text-ink-500 text-sm">{t('admin.questions.empty')}</p>
+          <p className="text-ink-500 text-sm font-medium mb-1">{t('admin.questions.empty')}</p>
+          <button onClick={downloadSampleCsv} className="text-xs text-brand-cyan hover:underline flex items-center gap-1 mx-auto mt-2">
+            <Download className="w-3 h-3" />{t('admin.questions.downloadSample')}
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -469,8 +499,7 @@ function QuestionsTab() {
                   t('admin.questions.headers.tier'),
                   t('admin.questions.headers.question'),
                   t('admin.questions.headers.options'),
-                  t('admin.questions.headers.translations'),
-                  t('admin.questions.headers.status'),
+                  t('admin.questions.headers.langs'),
                   t('admin.questions.headers.actions'),
                 ].map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
               </tr>
@@ -482,6 +511,9 @@ function QuestionsTab() {
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[q.tier]}`}>
                       {q.tier}
                     </span>
+                    {q.is_used && (
+                      <p className="text-[10px] text-ink-600 mt-1">{t('admin.questions.used')}</p>
+                    )}
                   </td>
                   <td className="py-3 pr-4 max-w-xs">
                     <p className="text-ink-200 text-xs leading-relaxed line-clamp-2">{q.question_mn}</p>
@@ -500,48 +532,27 @@ function QuestionsTab() {
                   </td>
                   <td className="py-3 pr-4">
                     <div className="flex gap-1">
-                      {(['en', 'ru', 'hi'] as const).map(lang => (
-                        <span key={lang} className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                          q[`question_${lang}` as keyof Question]
-                            ? 'bg-yes/20 text-yes'
-                            : 'bg-surface-700 text-ink-700'
-                        }`}>
-                          {lang}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <div className="flex flex-col gap-1">
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border w-fit ${TRANSLATION_BADGE[q.translation_status]}`}>
-                        {q.translation_status}
-                      </span>
-                      {q.is_used && (
-                        <span className="text-[10px] text-ink-600">{t('admin.questions.used')}</span>
-                      )}
+                      {(['mn', 'en', 'ru', 'hi'] as const).map(lang => {
+                        const hasLang = lang === 'mn' || !!q[`question_${lang}` as keyof Question]
+                        return (
+                          <span key={lang} className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${hasLang ? 'bg-yes/20 text-yes' : 'bg-surface-700 text-ink-700'}`}>
+                            {lang}
+                          </span>
+                        )
+                      })}
                     </div>
                   </td>
                   <td className="py-3">
-                    <div className="flex items-center gap-1">
+                    {!q.is_used && (
                       <button
-                        onClick={() => translateMut.mutate(q.id)}
-                        disabled={translateMut.isPending}
-                        className="p-1.5 rounded-lg text-ink-500 hover:text-brand-cyan hover:bg-brand-cyan/10 transition-colors disabled:opacity-50"
-                        title={t('admin.questions.retranslate')}
+                        onClick={() => deleteMut.mutate(q.id)}
+                        disabled={deleteMut.isPending}
+                        className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors disabled:opacity-50"
+                        title={t('admin.questions.delete')}
                       >
-                        <Languages className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      {!q.is_used && (
-                        <button
-                          onClick={() => deleteMut.mutate(q.id)}
-                          disabled={deleteMut.isPending}
-                          className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors disabled:opacity-50"
-                          title={t('admin.questions.delete')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </td>
                 </tr>
               ))}

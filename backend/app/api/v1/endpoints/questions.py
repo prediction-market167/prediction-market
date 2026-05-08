@@ -1,4 +1,4 @@
-"""Admin endpoints for question management, CSV/Excel upload, and Claude translation."""
+"""Admin endpoints for question management with multilingual CSV/Excel upload."""
 import csv
 import io
 import logging
@@ -12,7 +12,6 @@ from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
 from app.models.user import User
 from app.models.question import Question, QuestionTier, TranslationStatus
-from app.models.market import Market, MarketStatus
 from app.schemas.question import QuestionResponse
 
 logger = logging.getLogger(__name__)
@@ -26,133 +25,80 @@ TIER_OPTION_COUNT = {
     QuestionTier.HARD: 4,
 }
 
-
-async def _translate_question(question: Question) -> None:
-    """Translate a question from Mongolian to EN/RU/HI using Claude API."""
-    from app.core.config import settings
-    if not settings.ANTHROPIC_API_KEY:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping translation")
-        question.translation_status = TranslationStatus.FAILED
-        return
-
-    try:
-        import anthropic
-        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-
-        options_str = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(question.options_mn))
-        prompt = f"""Translate the following quiz question and its answer options from Mongolian to English, Russian, and Hindi.
-
-Question: {question.question_mn}
-
-Answer options:
-{options_str}
-
-Respond in this exact JSON format (no markdown, just raw JSON):
-{{
-  "en": {{
-    "question": "...",
-    "options": ["...", "...", ...]
-  }},
-  "ru": {{
-    "question": "...",
-    "options": ["...", "...", ...]
-  }},
-  "hi": {{
-    "question": "...",
-    "options": ["...", "...", ...]
-  }}
-}}
-
-Rules:
-- Keep option count the same as input
-- Preserve the meaning exactly
-- Keep answer options short (under 60 chars each)
-- The question should be natural in the target language"""
-
-        message = await client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        import json
-        text = message.content[0].text.strip()
-        # Strip markdown code blocks if present
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-
-        data = json.loads(text)
-
-        question.question_en = data["en"]["question"]
-        question.options_en = data["en"]["options"]
-        question.question_ru = data["ru"]["question"]
-        question.options_ru = data["ru"]["options"]
-        question.question_hi = data["hi"]["question"]
-        question.options_hi = data["hi"]["options"]
-        question.translation_status = TranslationStatus.DONE
-
-    except Exception as exc:
-        logger.error("Translation failed for question %s: %s", question.id, exc)
-        question.translation_status = TranslationStatus.FAILED
+OPTION_LETTERS = ['a', 'b', 'c', 'd']
+LANGUAGES = ['mn', 'en', 'ru', 'hi']
 
 
 def _parse_csv(content: bytes) -> list[dict]:
-    """Parse CSV file. Expected columns: tier,question,option1,option2[,option3,option4],correct"""
     text = content.decode("utf-8-sig").strip()
     reader = csv.DictReader(io.StringIO(text))
     rows = []
     for i, row in enumerate(reader, start=2):
-        row = {k.strip().lower(): v.strip() for k, v in row.items()}
-        rows.append({"row": i, **row})
+        row = {k.strip().lower(): (v.strip() if v else '') for k, v in row.items()}
+        rows.append({"_row": i, **row})
     return rows
 
 
 def _parse_excel(content: bytes) -> list[dict]:
-    """Parse Excel file with openpyxl."""
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return []
-    headers = [str(h).strip().lower() for h in rows[0]]
+    headers = [str(h).strip().lower() if h is not None else '' for h in rows[0]]
     result = []
     for i, row in enumerate(rows[1:], start=2):
-        result.append({"row": i, **dict(zip(headers, [str(v).strip() if v is not None else "" for v in row]))})
+        result.append({"_row": i, **dict(zip(headers, [str(v).strip() if v is not None else '' for v in row]))})
     return result
 
 
 def _parse_row(raw: dict) -> dict | str:
-    """Return parsed question dict or error string."""
+    row_num = raw.get("_row", "?")
     tier_str = raw.get("tier", "").lower()
     if tier_str not in QuestionTier._value2member_map_:
-        return f"Row {raw['row']}: invalid tier '{tier_str}'"
+        return f"Row {row_num}: invalid tier '{tier_str}' (must be free/easy/medium/hard)"
 
     tier = QuestionTier(tier_str)
     expected_count = TIER_OPTION_COUNT[tier]
+    letters = OPTION_LETTERS[:expected_count]
 
-    question_mn = raw.get("question", "").strip()
+    # Question text — MN required, others fall back to MN if missing
+    question_mn = raw.get("question_mn", "").strip()
     if not question_mn:
-        return f"Row {raw['row']}: empty question"
+        return f"Row {row_num}: missing question_mn"
+    question_en = raw.get("question_en", "").strip() or question_mn
+    question_ru = raw.get("question_ru", "").strip() or question_mn
+    question_hi = raw.get("question_hi", "").strip() or question_mn
 
-    options = []
-    for idx in range(1, expected_count + 1):
-        opt = raw.get(f"option{idx}", "").strip()
-        if not opt:
-            return f"Row {raw['row']}: missing option{idx}"
-        options.append(opt)
+    # Options per language
+    options: dict[str, list[str]] = {lang: [] for lang in LANGUAGES}
+    for letter in letters:
+        for lang in LANGUAGES:
+            key = f"option_{letter}_{lang}"
+            val = raw.get(key, "").strip()
+            if not val:
+                return f"Row {row_num}: missing {key}"
+            options[lang].append(val)
 
-    correct_raw = raw.get("correct", "").strip()
-    if not correct_raw.isdigit():
-        return f"Row {raw['row']}: 'correct' must be a number (1-based)"
-    correct_idx = int(correct_raw) - 1
-    if not (0 <= correct_idx < expected_count):
-        return f"Row {raw['row']}: correct option index out of range"
+    # Correct answer: a/b/c/d
+    correct_raw = raw.get("correct_answer", "").strip().lower()
+    if correct_raw not in letters:
+        return f"Row {row_num}: correct_answer must be one of {letters} (got '{correct_raw}')"
+    correct_idx = letters.index(correct_raw)
 
-    return {"tier": tier, "question_mn": question_mn, "options_mn": options, "correct_option_idx": correct_idx}
+    return {
+        "tier": tier,
+        "question_mn": question_mn,
+        "question_en": question_en,
+        "question_ru": question_ru,
+        "question_hi": question_hi,
+        "options_mn": options["mn"],
+        "options_en": options["en"],
+        "options_ru": options["ru"],
+        "options_hi": options["hi"],
+        "correct_option_idx": correct_idx,
+    }
 
 
 @router.get("/", response_model=List[QuestionResponse])
@@ -177,7 +123,7 @@ async def upload_questions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_superuser),
 ):
-    """Upload CSV or Excel file with questions. Auto-translates via Claude."""
+    """Upload CSV or Excel file with questions in all 4 languages."""
     content = await file.read()
     filename = (file.filename or "").lower()
 
@@ -187,6 +133,9 @@ async def upload_questions(
         raw_rows = _parse_csv(content)
     else:
         raise HTTPException(400, "File must be .csv or .xlsx")
+
+    if not raw_rows:
+        raise HTTPException(422, detail={"errors": ["File is empty or has no data rows"]})
 
     errors = []
     parsed = []
@@ -218,10 +167,16 @@ async def upload_questions(
             tier=tier,
             order_idx=order_idx,
             question_mn=row["question_mn"],
+            question_en=row["question_en"],
+            question_ru=row["question_ru"],
+            question_hi=row["question_hi"],
             options_mn=row["options_mn"],
+            options_en=row["options_en"],
+            options_ru=row["options_ru"],
+            options_hi=row["options_hi"],
             correct_option_idx=row["correct_option_idx"],
             is_used=False,
-            translation_status=TranslationStatus.PENDING,
+            translation_status=TranslationStatus.DONE,
         )
         db.add(q)
         created.append(q)
@@ -230,34 +185,12 @@ async def upload_questions(
     for q in created:
         await db.refresh(q)
 
-    # Translate all newly created questions
-    for q in created:
-        await _translate_question(q)
-
     await db.commit()
 
     return {
         "created": len(created),
         "questions": [QuestionResponse.model_validate(q) for q in created],
     }
-
-
-@router.post("/{question_id}/translate", response_model=QuestionResponse)
-async def retranslate_question(
-    question_id: int,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_superuser),
-):
-    """Retry translation for a specific question."""
-    result = await db.execute(select(Question).where(Question.id == question_id))
-    q = result.scalar_one_or_none()
-    if not q:
-        raise HTTPException(404, "Question not found")
-
-    await _translate_question(q)
-    await db.commit()
-    await db.refresh(q)
-    return q
 
 
 @router.post("/trigger/{tier}", status_code=201)
