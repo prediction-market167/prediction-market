@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useState, useEffect, useMemo } from 'react'
 import type { Market } from '@/types'
-import { TrendingUp, Clock } from 'lucide-react'
+import { TrendingUp, Clock, Timer } from 'lucide-react'
 
 interface Props {
   market: Market
@@ -14,11 +15,56 @@ const statusStyle: Record<string, string> = {
   cancelled: 'bg-surface-700 text-ink-600 border-surface-600',
 }
 
+const MIN_PARTICIPANTS = 20
+const AUTO_CANCEL_MS = 60 * 60 * 1000 // 1 hour
+
+function Countdown({ createdAt }: { createdAt: string }) {
+  const deadline = useMemo(
+    () => new Date(createdAt).getTime() + AUTO_CANCEL_MS,
+    [createdAt],
+  )
+  const [remaining, setRemaining] = useState(() => Math.max(0, deadline - Date.now()))
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRemaining(Math.max(0, deadline - Date.now()))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [deadline])
+
+  if (remaining === 0) {
+    return (
+      <span className="flex items-center gap-1 text-no text-xs font-semibold">
+        <Timer className="w-3 h-3" />
+        Auto-closing…
+      </span>
+    )
+  }
+
+  const totalSecs = Math.floor(remaining / 1000)
+  const mins = Math.floor(totalSecs / 60)
+  const secs = totalSecs % 60
+  const display = mins >= 60
+    ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+    : `${mins}:${secs.toString().padStart(2, '0')}`
+
+  return (
+    <span className="flex items-center gap-1 text-ink-500 text-xs font-medium">
+      <Timer className="w-3 h-3" />
+      {display} to fill
+    </span>
+  )
+}
+
 export default function MarketCard({ market }: Props) {
   const { t } = useTranslation()
   const yesPercent = Math.round(market.yes_probability * 100)
   const noPercent = 100 - yesPercent
   const style = statusStyle[market.status] ?? statusStyle.open
+
+  const showCountdown =
+    market.status === 'open' &&
+    (market.participant_count ?? 0) < MIN_PARTICIPANTS
 
   return (
     <Link to={`/markets/${market.id}`} className="card card-hover block p-5 group h-full">
@@ -51,15 +97,19 @@ export default function MarketCard({ market }: Props) {
           <TrendingUp className="w-3 h-3" />
           <span>${Number(market.total_volume).toLocaleString()}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          <span>
-            {new Date(market.close_date).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-        </div>
+        {showCountdown ? (
+          <Countdown createdAt={market.created_at} />
+        ) : (
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>
+              {new Date(market.close_date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   )
