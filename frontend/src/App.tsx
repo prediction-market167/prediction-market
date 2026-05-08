@@ -8,6 +8,7 @@ import PortfolioPage from '@/pages/PortfolioPage'
 import ProfilePage from '@/pages/ProfilePage'
 import LeaderboardPage from '@/pages/LeaderboardPage'
 import AdminPage from '@/pages/AdminPage'
+import PrivacyPage from '@/pages/PrivacyPage'
 import Layout from '@/components/common/Layout'
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
             }
           />
         </Route>
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<Navigate to="/" replace />} />
       </Routes>
