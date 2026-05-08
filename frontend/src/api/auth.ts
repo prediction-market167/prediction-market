@@ -18,6 +18,8 @@ export const authApi = {
 
   me: () => apiClient.get<User>('/users/me').then((r) => r.data),
 
-  telegramLogin: (initData: string) =>
-    apiClient.post<Token>('/auth/telegram', { init_data: initData }).then((r) => r.data),
+  telegramLogin: (initData: string, ref?: string | null) =>
+    apiClient
+      .post<Token>('/auth/telegram', { init_data: initData }, { params: ref ? { ref } : {} })
+      .then((r) => r.data),
 }

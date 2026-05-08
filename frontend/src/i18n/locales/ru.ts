@@ -2,11 +2,17 @@ const ru = {
   nav: {
     markets: 'Играть',
     portfolio: 'Портфель',
+    profile: 'Профиль',
     admin: 'Админ',
-    login: 'Войти',
-    getStarted: 'Начать',
-    logout: 'Выйти',
     footer: '© 2026 Manifold · Торгуйте будущим',
+  },
+  auth: {
+    connecting: 'Подключение...',
+    telegramOnly: 'Откройте в Telegram',
+    telegramOnlyDesc: 'Это приложение работает внутри Telegram. Откройте его через бота или ссылку на мини-приложение.',
+  },
+  profile: {
+    balance: 'Баланс',
   },
   home: {
     badge: 'Конкурсы открыты',
@@ -37,42 +43,6 @@ const ru = {
         title: 'Честно и прозрачно',
         desc: 'Каждый конкурс верифицируется в блокчейне. Никаких скрытых комиссий и манипуляций.',
       },
-    },
-  },
-  auth: {
-    login: {
-      title: 'С возвращением',
-      subtitle: 'Войдите в свой аккаунт',
-      email: 'Эл. почта',
-      password: 'Пароль',
-      emailPlaceholder: 'вы@пример.ру',
-      emailError: 'Введите корректный адрес эл. почты',
-      passwordError: 'Пароль должен содержать не менее 6 символов',
-      error: 'Неверный адрес эл. почты или пароль',
-      submit: 'Войти',
-      submitting: 'Вход...',
-      noAccount: 'Нет аккаунта?',
-      createOne: 'Создать →',
-    },
-    register: {
-      title: 'Создать аккаунт',
-      subtitle: 'Начните соревноваться сегодня',
-      fields: {
-        email: { label: 'Эл. почта', placeholder: 'вы@пример.ру' },
-        username: { label: 'Имя пользователя', placeholder: 'satoshi' },
-        fullName: { label: 'Полное имя', placeholder: 'Необязательно' },
-        password: { label: 'Пароль', placeholder: '••••••••' },
-      },
-      errors: {
-        email: 'Введите корректный адрес эл. почты',
-        username: 'Имя пользователя должно содержать не менее 3 символов',
-        password: 'Пароль должен содержать не менее 6 символов',
-        failed: 'Не удалось создать аккаунт. Попробуйте ещё раз.',
-      },
-      submit: 'Зарегистрироваться',
-      submitting: 'Создание аккаунта...',
-      hasAccount: 'Уже есть аккаунт?',
-      signIn: 'Войти →',
     },
   },
   game: {

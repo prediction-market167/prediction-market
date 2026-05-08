@@ -2,11 +2,17 @@ const en = {
   nav: {
     markets: 'Compete',
     portfolio: 'Portfolio',
+    profile: 'Profile',
     admin: 'Admin',
-    login: 'Log In',
-    getStarted: 'Get Started',
-    logout: 'Logout',
     footer: '© 2026 Manifold · Trade the future',
+  },
+  auth: {
+    connecting: 'Connecting...',
+    telegramOnly: 'Open in Telegram',
+    telegramOnlyDesc: 'This app runs inside Telegram. Open it via the bot or mini app link.',
+  },
+  profile: {
+    balance: 'Balance',
   },
   home: {
     badge: 'Contests are live',
@@ -37,42 +43,6 @@ const en = {
         title: 'Fair & Transparent',
         desc: 'Every contest is verifiable on-chain. No hidden fees, no manipulation, no surprises.',
       },
-    },
-  },
-  auth: {
-    login: {
-      title: 'Welcome back',
-      subtitle: 'Sign in to your account',
-      email: 'Email',
-      password: 'Password',
-      emailPlaceholder: 'you@example.com',
-      emailError: 'Please enter a valid email',
-      passwordError: 'Password must be at least 6 characters',
-      error: 'Invalid email or password',
-      submit: 'Sign In',
-      submitting: 'Signing in...',
-      noAccount: 'No account?',
-      createOne: 'Create one →',
-    },
-    register: {
-      title: 'Create account',
-      subtitle: 'Start competing today',
-      fields: {
-        email: { label: 'Email', placeholder: 'you@example.com' },
-        username: { label: 'Username', placeholder: 'satoshi' },
-        fullName: { label: 'Full Name', placeholder: 'Optional' },
-        password: { label: 'Password', placeholder: '••••••••' },
-      },
-      errors: {
-        email: 'Please enter a valid email',
-        username: 'Username must be at least 3 characters',
-        password: 'Password must be at least 6 characters',
-        failed: 'Failed to create account. Please try again.',
-      },
-      submit: 'Create Account',
-      submitting: 'Creating account...',
-      hasAccount: 'Already have an account?',
-      signIn: 'Sign in →',
     },
   },
   game: {

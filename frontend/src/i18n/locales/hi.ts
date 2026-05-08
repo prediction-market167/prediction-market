@@ -2,11 +2,17 @@ const hi = {
   nav: {
     markets: 'खेलें',
     portfolio: 'पोर्टफोलियो',
+    profile: 'प्रोफ़ाइल',
     admin: 'एडमिन',
-    login: 'लॉग इन',
-    getStarted: 'शुरू करें',
-    logout: 'लॉग आउट',
     footer: '© 2026 Manifold · भविष्य में ट्रेड करें',
+  },
+  auth: {
+    connecting: 'कनेक्ट हो रहा है...',
+    telegramOnly: 'Telegram में खोलें',
+    telegramOnlyDesc: 'यह ऐप Telegram के अंदर काम करता है। बॉट या मिनी ऐप लिंक के ज़रिए खोलें।',
+  },
+  profile: {
+    balance: 'बैलेंस',
   },
   home: {
     badge: 'प्रतियोगिताएं लाइव हैं',
@@ -37,42 +43,6 @@ const hi = {
         title: 'निष्पक्ष और पारदर्शी',
         desc: 'हर प्रतियोगिता ब्लॉकचेन पर सत्यापनीय। कोई छुपी फीस नहीं, कोई हेरफेर नहीं।',
       },
-    },
-  },
-  auth: {
-    login: {
-      title: 'वापस आपका स्वागत है',
-      subtitle: 'अपने अकाउंट में साइन इन करें',
-      email: 'ईमेल',
-      password: 'पासवर्ड',
-      emailPlaceholder: 'आप@उदाहरण.कॉम',
-      emailError: 'कृपया एक वैध ईमेल दर्ज करें',
-      passwordError: 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए',
-      error: 'ईमेल या पासवर्ड गलत है',
-      submit: 'साइन इन करें',
-      submitting: 'साइन इन हो रहा है...',
-      noAccount: 'अकाउंट नहीं है?',
-      createOne: 'बनाएं →',
-    },
-    register: {
-      title: 'अकाउंट बनाएं',
-      subtitle: 'आज से प्रतिस्पर्धा शुरू करें',
-      fields: {
-        email: { label: 'ईमेल', placeholder: 'आप@उदाहरण.कॉम' },
-        username: { label: 'यूज़रनेम', placeholder: 'satoshi' },
-        fullName: { label: 'पूरा नाम', placeholder: 'वैकल्पिक' },
-        password: { label: 'पासवर्ड', placeholder: '••••••••' },
-      },
-      errors: {
-        email: 'कृपया एक वैध ईमेल दर्ज करें',
-        username: 'यूज़रनेम कम से कम 3 अक्षर का होना चाहिए',
-        password: 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए',
-        failed: 'अकाउंट बनाने में विफल। कृपया पुनः प्रयास करें।',
-      },
-      submit: 'अकाउंट बनाएं',
-      submitting: 'अकाउंट बन रहा है...',
-      hasAccount: 'पहले से अकाउंट है?',
-      signIn: 'साइन इन करें →',
     },
   },
   game: {
