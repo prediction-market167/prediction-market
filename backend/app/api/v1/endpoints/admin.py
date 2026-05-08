@@ -11,6 +11,7 @@ from sqlalchemy import select, func
 
 from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
+from app.core.config import settings
 from app.models.user import User
 from app.models.market import Market, MarketStatus
 from app.models.bet import Bet, BetStatus
@@ -478,3 +479,76 @@ async def broadcast_notification(
 
     logger.info("Broadcast sent to %d/%d users", sent, len(users))
     return {"sent": sent, "total": len(users)}
+
+
+# ─── Blocked Users ────────────────────────────────────────────────────────────
+
+class BlockedUserOut(BaseModel):
+    id: int
+    username: str
+    telegram_id: int | None
+    blocked_at: datetime | None
+    block_reason: str | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/blocked-users", response_model=List[BlockedUserOut])
+async def list_blocked_users(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    result = await db.execute(
+        select(User).where(User.is_blocked == True).order_by(User.blocked_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/blocked-users/{user_id}/unblock")
+async def unblock_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot unblock yourself")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_blocked = False
+    user.blocked_at = None
+    user.block_reason = None
+    logger.info("Unblocked user %s by admin %s", user_id, current_user.id)
+    return {"ok": True}
+
+
+# ─── Financial Dashboard ─────────────────────────────────────────────────────
+
+class FinancialsOut(BaseModel):
+    total_revenue: Decimal
+    prize_pool_balance: Decimal
+    jackpot_balance: Decimal
+    referral_pool_balance: Decimal
+    monthly_bonus_balance: Decimal
+    admin_profit_balance: Decimal
+    master_wallet_configured: bool
+
+
+@router.get("/financials", response_model=FinancialsOut)
+async def get_financials(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    result = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = result.scalar_one_or_none()
+    zero = Decimal("0.00")
+    return FinancialsOut(
+        total_revenue=funds.total_revenue if funds else zero,
+        prize_pool_balance=funds.prize_pool_balance if funds else zero,
+        jackpot_balance=funds.jackpot_balance if funds else zero,
+        referral_pool_balance=funds.referral_pool_balance if funds else zero,
+        monthly_bonus_balance=funds.monthly_bonus_balance if funds else zero,
+        admin_profit_balance=funds.admin_profit_balance if funds else zero,
+        master_wallet_configured=bool(settings.MASTER_ADMIN_WALLET),
+    )

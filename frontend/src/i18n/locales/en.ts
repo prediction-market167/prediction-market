@@ -174,9 +174,15 @@ const en = {
       cancelled: 'Cancelled',
     },
   },
+  security: {
+    blockedTitle: 'Account Blocked',
+    blockedDesc: 'Your account has been blocked due to suspicious activity. Contact support.',
+    tooFastTitle: 'Slow Down',
+    tooFastDesc: 'You are submitting answers too quickly. Please wait before trying again.',
+  },
   admin: {
     title: 'Admin Panel',
-    tabs: { markets: 'Markets', users: 'Users', questions: 'Questions', jackpot: 'Jackpot', notifications: 'Notify', settings: 'Settings' },
+    tabs: { markets: 'Markets', users: 'Users', questions: 'Questions', jackpot: 'Jackpot', notifications: 'Notify', settings: 'Settings', blocked: 'Blocked', financials: 'Financials' },
     settings: {
       title: 'Platform Settings',
       starsToTonRate: 'Stars → TON rate (Stars per 1 TON)',
@@ -184,6 +190,31 @@ const en = {
       save: 'Save',
       saving: 'Saving...',
       saved: 'Saved!',
+    },
+    blocked: {
+      title: 'Blocked Users',
+      empty: 'No blocked users',
+      emptyHint: 'Users auto-blocked by the bot detector appear here',
+      headers: {
+        user: 'User',
+        reason: 'Reason',
+        blockedAt: 'Blocked At',
+        actions: 'Actions',
+      },
+      unblock: 'Unblock',
+      unblocking: 'Unblocking...',
+    },
+    financials: {
+      title: 'Financial Dashboard',
+      subtitle: 'Live ledger balances — auto-refreshes every 5 seconds',
+      totalRevenue: 'Total Revenue',
+      prizePool: 'Prize Pool',
+      jackpot: 'Jackpot Fund',
+      referralPool: 'Referral Pool',
+      monthlyBonus: 'Monthly Bonus',
+      adminProfit: 'Admin Net Profit',
+      walletConfigured: 'Master wallet configured',
+      walletMissing: 'MASTER_ADMIN_WALLET not set — withdrawals disabled',
     },
     markets: {
       count: '{{count}} markets',

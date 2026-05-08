@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
 
     DEPOSIT_TON_ADDRESS: str | None = None
+    MASTER_ADMIN_WALLET: str | None = None
 
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_BOT_USERNAME: str | None = None

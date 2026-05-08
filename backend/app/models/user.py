@@ -1,7 +1,8 @@
-from sqlalchemy import String, Boolean, Numeric, BigInteger, ForeignKey, Integer
+from sqlalchemy import String, Boolean, Numeric, BigInteger, ForeignKey, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 from decimal import Decimal
+from datetime import datetime
 
 
 class User(Base, TimestampMixin):
@@ -17,6 +18,11 @@ class User(Base, TimestampMixin):
     balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Bot detection / security
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    block_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Referral system
     referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)

@@ -5,14 +5,14 @@ import { format } from 'date-fns'
 import {
   Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
   Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet,
-  Zap, Bell, AlertTriangle, Send, Settings,
+  Zap, Bell, AlertTriangle, Send, Settings, ShieldOff, DollarSign,
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
 import questionsApi from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
 
-type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings'
+type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials'
 
 const MIN_PARTICIPANTS = 20
 
@@ -919,6 +919,132 @@ function SettingsTab() {
   )
 }
 
+// ─── Blocked Users Tab ────────────────────────────────────────────────────────
+
+function BlockedUsersTab() {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { data: blocked = [], isLoading } = useQuery({
+    queryKey: ['admin', 'blocked-users'],
+    queryFn: adminApi.getBlockedUsers,
+    refetchInterval: 10_000,
+  })
+  const unblockMut = useMutation({
+    mutationFn: (id: number) => adminApi.unblockUser(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'blocked-users'] }),
+  })
+  const HEADERS = [
+    t('admin.blocked.headers.user'),
+    t('admin.blocked.headers.reason'),
+    t('admin.blocked.headers.blockedAt'),
+    t('admin.blocked.headers.actions'),
+  ]
+
+  return (
+    <div>
+      <div className="mb-5">
+        <p className="text-sm font-black text-ink-100 mb-1">{t('admin.blocked.title')}</p>
+      </div>
+      {isLoading ? (
+        <div className="text-center py-12 text-ink-600">{t('admin.markets.loading')}</div>
+      ) : blocked.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl bg-surface-800/50 border border-surface-700">
+          <ShieldOff className="w-10 h-10 text-ink-700 mx-auto mb-3" />
+          <p className="text-ink-500 text-sm font-medium mb-1">{t('admin.blocked.empty')}</p>
+          <p className="text-xs text-ink-700">{t('admin.blocked.emptyHint')}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-surface-600">
+                {HEADERS.map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-700">
+              {blocked.map(u => (
+                <tr key={u.id} className="hover:bg-surface-700/30 transition-colors">
+                  <td className="py-3 pr-4">
+                    <p className="text-ink-100 font-medium">@{u.username}</p>
+                    {u.telegram_id && <p className="text-xs text-ink-600">TG: {u.telegram_id}</p>}
+                  </td>
+                  <td className="py-3 pr-4 max-w-xs">
+                    <p className="text-xs text-no">{u.block_reason ?? '—'}</p>
+                  </td>
+                  <td className="py-3 pr-4 text-xs text-ink-400 whitespace-nowrap">
+                    {u.blocked_at ? format(new Date(u.blocked_at), 'MMM d, HH:mm') : '—'}
+                  </td>
+                  <td className="py-3">
+                    <button
+                      onClick={() => unblockMut.mutate(u.id)}
+                      disabled={unblockMut.isPending}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-yes/10 border border-yes/30 text-yes hover:bg-yes/20 transition-colors disabled:opacity-50"
+                    >
+                      {unblockMut.isPending ? t('admin.blocked.unblocking') : t('admin.blocked.unblock')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Financial Dashboard Tab ──────────────────────────────────────────────────
+
+function FinancialsTab() {
+  const { t } = useTranslation()
+  const { data } = useQuery({
+    queryKey: ['admin', 'financials'],
+    queryFn: adminApi.getFinancials,
+    refetchInterval: 5_000,
+  })
+
+  const ledgers = [
+    { label: t('admin.financials.totalRevenue'), value: data?.total_revenue ?? 0, color: 'text-brand-cyan', bg: 'bg-brand-cyan/10 border-brand-cyan/30' },
+    { label: t('admin.financials.prizePool'), value: data?.prize_pool_balance ?? 0, color: 'text-yes', bg: 'bg-yes/10 border-yes/30' },
+    { label: t('admin.financials.jackpot'), value: data?.jackpot_balance ?? 0, color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' },
+    { label: t('admin.financials.referralPool'), value: data?.referral_pool_balance ?? 0, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/30' },
+    { label: t('admin.financials.monthlyBonus'), value: data?.monthly_bonus_balance ?? 0, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30' },
+    { label: t('admin.financials.adminProfit'), value: data?.admin_profit_balance ?? 0, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm font-black text-ink-100 mb-1">{t('admin.financials.title')}</p>
+        <p className="text-xs text-ink-500">{t('admin.financials.subtitle')}</p>
+      </div>
+
+      {/* Wallet status */}
+      <div className={`rounded-xl px-4 py-3 flex items-center gap-3 border ${data?.master_wallet_configured ? 'bg-yes/10 border-yes/30' : 'bg-no/10 border-no/30'}`}>
+        {data?.master_wallet_configured
+          ? <CheckCircle className="w-4 h-4 text-yes flex-shrink-0" />
+          : <AlertTriangle className="w-4 h-4 text-no flex-shrink-0" />
+        }
+        <p className={`text-sm font-semibold ${data?.master_wallet_configured ? 'text-yes' : 'text-no'}`}>
+          {data?.master_wallet_configured ? t('admin.financials.walletConfigured') : t('admin.financials.walletMissing')}
+        </p>
+      </div>
+
+      {/* Ledger cards grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {ledgers.map(({ label, value, color, bg }) => (
+          <div key={label} className={`rounded-2xl p-5 border ${bg}`}>
+            <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">{label}</p>
+            <p className={`text-2xl font-black ${color}`}>
+              ⭐ {Number(value).toLocaleString()}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -937,6 +1063,8 @@ export default function AdminPage() {
             { key: 'jackpot', icon: Zap, label: t('admin.tabs.jackpot') },
             { key: 'notifications', icon: Bell, label: t('admin.tabs.notifications') },
             { key: 'settings', icon: Settings, label: t('admin.tabs.settings') },
+            { key: 'blocked', icon: ShieldOff, label: t('admin.tabs.blocked') },
+            { key: 'financials', icon: DollarSign, label: t('admin.tabs.financials') },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -957,6 +1085,8 @@ export default function AdminPage() {
         {tab === 'jackpot' && <JackpotTab />}
         {tab === 'notifications' && <NotificationsTab />}
         {tab === 'settings' && <SettingsTab />}
+        {tab === 'blocked' && <BlockedUsersTab />}
+        {tab === 'financials' && <FinancialsTab />}
       </div>
     </div>
   )

@@ -34,15 +34,10 @@ def _correct_side(correct_option_idx: int) -> str:
     return mapping.get(correct_option_idx, "yes")
 
 
-async def _update_system_funds(jackpot_add: Decimal, monthly_add: Decimal, db: AsyncSession) -> None:
+async def _get_system_funds(db: AsyncSession):
     from app.models.jackpot import SystemFunds
     funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
-    funds = funds_res.scalar_one_or_none()
-    if funds:
-        funds.jackpot_balance += jackpot_add
-        funds.monthly_bonus_balance += monthly_add
-    else:
-        db.add(SystemFunds(id=1, jackpot_balance=jackpot_add, monthly_bonus_balance=monthly_add))
+    return funds_res.scalar_one_or_none()
 
 
 async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
@@ -128,7 +123,7 @@ async def reveal_or_cancel_open_markets(db: AsyncSession) -> None:
 
 
 async def _cancel_market(market, db: AsyncSession) -> None:
-    """Cancel market and refund all bets."""
+    """Cancel market and refund all bets. Reverses ledger credits."""
     from app.models.market import MarketStatus
     from app.models.bet import Bet, BetStatus
     from app.models.user import User
@@ -139,6 +134,8 @@ async def _cancel_market(market, db: AsyncSession) -> None:
         select(Bet).where(Bet.market_id == market.id, Bet.status == BetStatus.ACTIVE)
     )
     bets = bets_result.scalars().all()
+
+    funds = await _get_system_funds(db)
 
     for bet in bets:
         user_res = await db.execute(select(User).where(User.id == bet.user_id))
@@ -154,6 +151,14 @@ async def _cancel_market(market, db: AsyncSession) -> None:
             description=f"Auto-refund: market #{market.id} insufficient participants",
         ))
         bet.status = BetStatus.CANCELLED
+
+        # Reverse ledger credits for this refunded bet
+        if funds and bet.amount > 0:
+            funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - bet.amount * Decimal("0.50"))
+            funds.jackpot_balance = max(Decimal("0"), funds.jackpot_balance - bet.amount * Decimal("0.10"))
+            funds.referral_pool_balance = max(Decimal("0"), funds.referral_pool_balance - bet.amount * Decimal("0.10"))
+            funds.monthly_bonus_balance = max(Decimal("0"), funds.monthly_bonus_balance - bet.amount * Decimal("0.10"))
+            funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.20"))
 
         sp_res = await db.execute(select(StarPayment).where(StarPayment.bet_id == bet.id))
         sp = sp_res.scalar_one_or_none()
@@ -197,15 +202,17 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
 
     total_pool = sum(b.amount for b in bets)
     winner_pool = total_pool * WINNER_POOL_SHARE
-    jackpot_add = total_pool * JACKPOT_SHARE
-    monthly_add = total_pool * MONTHLY_BONUS_SHARE
 
     correct_bets = [b for b in bets if b.side == correct_side]
     losing_bets = [b for b in bets if b.side != correct_side]
 
+    funds = await _get_system_funds(db)
+
     # If no one got it right, winner pool rolls into jackpot
     if not correct_bets:
-        jackpot_add += winner_pool
+        if funds:
+            funds.jackpot_balance += winner_pool
+            funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - winner_pool)
         winner_pool = Decimal("0")
 
     top_winners = correct_bets[:5]
@@ -228,6 +235,10 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
             description=f"Quiz #{rank+1} place: market #{market.id} · {payout}⭐",
         ))
 
+    # Deduct winner payouts from prize pool ledger
+    if funds and winner_pool > 0:
+        funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - winner_pool)
+
     # Correct bets beyond top 5 also get LOST (didn't make top 5)
     for bet in correct_bets[5:]:
         bet.status = BetStatus.LOST
@@ -236,8 +247,6 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
     for bet in losing_bets:
         bet.status = BetStatus.LOST
         bet.actual_payout = Decimal("0")
-
-    await _update_system_funds(jackpot_add, monthly_add, db)
 
     market.revealed_at = datetime.now(timezone.utc)
     market.status = MarketStatus.RESOLVED

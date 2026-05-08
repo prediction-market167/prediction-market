@@ -178,9 +178,15 @@ const ru = {
       cancelled: 'Отменено',
     },
   },
+  security: {
+    blockedTitle: 'Аккаунт заблокирован',
+    blockedDesc: 'Ваш аккаунт заблокирован за подозрительную активность. Обратитесь в поддержку.',
+    tooFastTitle: 'Слишком быстро',
+    tooFastDesc: 'Вы отправляете ответы слишком быстро. Пожалуйста, подождите.',
+  },
   admin: {
     title: 'Панель администратора',
-    tabs: { markets: 'Рынки', users: 'Пользователи', questions: 'Вопросы', jackpot: 'Джекпот', notifications: 'Рассылка', settings: 'Настройки' },
+    tabs: { markets: 'Рынки', users: 'Пользователи', questions: 'Вопросы', jackpot: 'Джекпот', notifications: 'Рассылка', settings: 'Настройки', blocked: 'Блокировки', financials: 'Финансы' },
     settings: {
       title: 'Настройки платформы',
       starsToTonRate: 'Курс Stars → TON (Stars за 1 TON)',
@@ -188,6 +194,31 @@ const ru = {
       save: 'Сохранить',
       saving: 'Сохраняем...',
       saved: 'Сохранено!',
+    },
+    blocked: {
+      title: 'Заблокированные пользователи',
+      empty: 'Нет заблокированных пользователей',
+      emptyHint: 'Пользователи, автоматически заблокированные детектором ботов, появятся здесь',
+      headers: {
+        user: 'Пользователь',
+        reason: 'Причина',
+        blockedAt: 'Дата блокировки',
+        actions: 'Действия',
+      },
+      unblock: 'Разблокировать',
+      unblocking: 'Разблокируем...',
+    },
+    financials: {
+      title: 'Финансовая панель',
+      subtitle: 'Балансы в реальном времени — обновляются каждые 5 секунд',
+      totalRevenue: 'Общая выручка',
+      prizePool: 'Призовой фонд',
+      jackpot: 'Джекпот',
+      referralPool: 'Реферальный пул',
+      monthlyBonus: 'Ежемесячный бонус',
+      adminProfit: 'Чистая прибыль',
+      walletConfigured: 'Мастер-кошелёк настроен',
+      walletMissing: 'MASTER_ADMIN_WALLET не задан — вывод средств отключён',
     },
     markets: {
       count: '{{count}} рынков',

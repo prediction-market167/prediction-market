@@ -48,6 +48,24 @@ export interface AdminSettings {
   stars_to_ton_rate: number
 }
 
+export interface BlockedUser {
+  id: number
+  username: string
+  telegram_id: number | null
+  blocked_at: string | null
+  block_reason: string | null
+}
+
+export interface FinancialData {
+  total_revenue: number
+  prize_pool_balance: number
+  jackpot_balance: number
+  referral_pool_balance: number
+  monthly_bonus_balance: number
+  admin_profit_balance: number
+  master_wallet_configured: boolean
+}
+
 const adminApi = {
   listMarkets: (status?: MarketStatus) =>
     apiClient.get<Market[]>('/admin/markets', { params: status ? { status } : {} }).then(r => r.data),
@@ -90,6 +108,15 @@ const adminApi = {
 
   updateSettings: (stars_to_ton_rate: number) =>
     apiClient.patch<AdminSettings>('/admin/settings', { stars_to_ton_rate }).then(r => r.data),
+
+  getBlockedUsers: () =>
+    apiClient.get<BlockedUser[]>('/admin/blocked-users').then(r => r.data),
+
+  unblockUser: (id: number) =>
+    apiClient.post<{ ok: boolean }>(`/admin/blocked-users/${id}/unblock`).then(r => r.data),
+
+  getFinancials: () =>
+    apiClient.get<FinancialData>('/admin/financials').then(r => r.data),
 }
 
 export default adminApi

@@ -174,9 +174,15 @@ const hi = {
       cancelled: 'रद्द',
     },
   },
+  security: {
+    blockedTitle: 'अकाउंट ब्लॉक है',
+    blockedDesc: 'संदिग्ध गतिविधि के कारण आपका अकाउंट ब्लॉक कर दिया गया है। सहायता से संपर्क करें।',
+    tooFastTitle: 'बहुत तेज़',
+    tooFastDesc: 'आप बहुत जल्दी जवाब भेज रहे हैं। कृपया थोड़ा इंतज़ार करें।',
+  },
   admin: {
     title: 'एडमिन पैनल',
-    tabs: { markets: 'बाज़ार', users: 'उपयोगकर्ता', questions: 'प्रश्न', jackpot: 'जैकपॉट', notifications: 'सूचना', settings: 'सेटिंग' },
+    tabs: { markets: 'बाज़ार', users: 'उपयोगकर्ता', questions: 'प्रश्न', jackpot: 'जैकपॉट', notifications: 'सूचना', settings: 'सेटिंग', blocked: 'ब्लॉक', financials: 'वित्त' },
     settings: {
       title: 'प्लेटफ़ॉर्म सेटिंग',
       starsToTonRate: 'Stars → TON दर (प्रति 1 TON Stars)',
@@ -184,6 +190,31 @@ const hi = {
       save: 'सहेजें',
       saving: 'सहेज रहे हैं...',
       saved: 'सहेजा गया!',
+    },
+    blocked: {
+      title: 'ब्लॉक किए गए उपयोगकर्ता',
+      empty: 'कोई ब्लॉक उपयोगकर्ता नहीं',
+      emptyHint: 'बॉट डिटेक्टर द्वारा स्वतः ब्लॉक किए गए उपयोगकर्ता यहाँ दिखेंगे',
+      headers: {
+        user: 'उपयोगकर्ता',
+        reason: 'कारण',
+        blockedAt: 'ब्लॉक समय',
+        actions: 'क्रियाएं',
+      },
+      unblock: 'अनब्लॉक करें',
+      unblocking: 'अनब्लॉक हो रहा है...',
+    },
+    financials: {
+      title: 'वित्तीय डैशबोर्ड',
+      subtitle: 'लाइव लेजर बैलेंस — हर 5 सेकंड में रिफ्रेश',
+      totalRevenue: 'कुल राजस्व',
+      prizePool: 'पुरस्कार पूल',
+      jackpot: 'जैकपॉट फंड',
+      referralPool: 'रेफरल पूल',
+      monthlyBonus: 'मासिक बोनस',
+      adminProfit: 'शुद्ध लाभ',
+      walletConfigured: 'मास्टर वॉलेट सेट है',
+      walletMissing: 'MASTER_ADMIN_WALLET नहीं है — निकासी अक्षम',
     },
     markets: {
       count: '{{count}} बाज़ार',

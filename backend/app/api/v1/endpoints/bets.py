@@ -11,7 +11,9 @@ from app.models.user import User
 from app.models.market import Market, MarketStatus
 from app.models.bet import Bet, BetSide, BetStatus
 from app.models.transaction import Transaction, TransactionType
+from app.models.jackpot import SystemFunds
 from app.schemas.bet import BetCreate, BetResponse
+from app.core.rate_limit import check_bet_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,11 @@ async def place_bet(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if current_user.is_blocked:
+        raise HTTPException(status_code=403, detail="account_blocked")
+
+    await check_bet_rate_limit(current_user.id, db)
+
     result = await db.execute(select(Market).where(Market.id == bet_in.market_id))
     market = result.scalar_one_or_none()
     if not market:
@@ -161,6 +168,28 @@ async def place_bet(
         description=f"Bet on market #{market.id} - {bet_in.side.value.upper()}",
     )
     db.add(tx)
+
+    # Credit separate ledgers for every paid entry
+    if amount > 0:
+        funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+        funds = funds_res.scalar_one_or_none()
+        if funds:
+            funds.prize_pool_balance += amount * Decimal("0.50")
+            funds.jackpot_balance += amount * Decimal("0.10")
+            funds.referral_pool_balance += amount * Decimal("0.10")
+            funds.monthly_bonus_balance += amount * Decimal("0.10")
+            funds.admin_profit_balance += amount * Decimal("0.20")
+            funds.total_revenue += amount
+        else:
+            db.add(SystemFunds(
+                id=1,
+                prize_pool_balance=amount * Decimal("0.50"),
+                jackpot_balance=amount * Decimal("0.10"),
+                referral_pool_balance=amount * Decimal("0.10"),
+                monthly_bonus_balance=amount * Decimal("0.10"),
+                admin_profit_balance=amount * Decimal("0.20"),
+                total_revenue=amount,
+            ))
 
     await _handle_referral_bonus(market, current_user, amount, db)
 

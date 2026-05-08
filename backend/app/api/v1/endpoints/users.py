@@ -61,6 +61,10 @@ async def withdraw(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if not settings.MASTER_ADMIN_WALLET:
+        raise HTTPException(status_code=503, detail="Withdrawals are currently disabled")
+    if current_user.is_blocked:
+        raise HTTPException(status_code=403, detail="account_blocked")
     if not current_user.ton_wallet_address:
         raise HTTPException(status_code=400, detail="No TON wallet connected")
     if body.amount_stars <= 0:
