@@ -42,16 +42,19 @@ const en = {
     },
     features: {
       realtimeOdds: {
-        title: 'Test Your Knowledge',
-        desc: 'Compete on real-world events across politics, sports, crypto, and more. The sharper your instincts, the bigger your rewards.',
+        title: 'Proof of Knowledge',
+        subtitle: 'Master the Moment',
+        desc: 'Compete with facts, not instincts. In this fast-paced arena, your logic and speed are the ultimate keys to success. Analyze the world in real-time and win.',
       },
       instantSettlement: {
-        title: 'Instant Results',
-        desc: 'Prizes credited the moment contests resolve. No waiting, no friction — just win and collect.',
+        title: 'Instant Payouts',
+        subtitle: 'Rapid Resolution',
+        desc: 'One hour to enter, zero hours to wait. Contests resolve immediately, and winnings land straight in your wallet. No friction, no delays—just pure speed.',
       },
       transparent: {
         title: 'Fair & Transparent',
-        desc: 'Every contest is verifiable on-chain. No hidden fees, no manipulation, no surprises.',
+        subtitle: 'On-Chain Trust',
+        desc: 'Every contest is verified on the blockchain. No hidden fees, no manipulation, and no surprises. Your victory is 100% fair and mathematically guaranteed.',
       },
     },
   },

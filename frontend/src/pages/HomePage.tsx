@@ -102,23 +102,26 @@ export default function HomePage() {
     { label: t('home.stats.activeMarkets'), value: '1,200+' },
     { label: t('home.stats.totalVolume'), value: '$48M' },
     { label: t('home.stats.traders'), value: '32K' },
-    { label: t('home.stats.avgRoi'), value: '+22%' },
+    { label: t('home.stats.avgRoi'), value: '48%' },
   ]
 
   const FEATURES = [
     {
       icon: Brain,
       title: t('home.features.realtimeOdds.title'),
+      subtitle: t('home.features.realtimeOdds.subtitle'),
       desc: t('home.features.realtimeOdds.desc'),
     },
     {
       icon: Zap,
       title: t('home.features.instantSettlement.title'),
+      subtitle: t('home.features.instantSettlement.subtitle'),
       desc: t('home.features.instantSettlement.desc'),
     },
     {
       icon: Shield,
       title: t('home.features.transparent.title'),
+      subtitle: t('home.features.transparent.subtitle'),
       desc: t('home.features.transparent.desc'),
     },
   ]
@@ -238,12 +241,13 @@ export default function HomePage() {
 
       {/* Features */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        {FEATURES.map(({ icon: Icon, title, desc }) => (
+        {FEATURES.map(({ icon: Icon, title, subtitle, desc }) => (
           <div key={title} className="card card-hover group">
             <div className="w-11 h-11 bg-gradient-gold rounded-xl flex items-center justify-center mb-4 shadow-glow-gold group-hover:shadow-glow-gold transition-shadow duration-300">
               <Icon className="w-5 h-5 text-surface-900" />
             </div>
-            <h3 className="font-bold text-ink-100 mb-2 text-base">{title}</h3>
+            <h3 className="font-black text-ink-100 mb-0.5 text-base">{title}</h3>
+            <p className="text-xs font-semibold text-gradient-gold mb-2 uppercase tracking-wide">{subtitle}</p>
             <p className="text-sm text-ink-500 leading-relaxed">{desc}</p>
           </div>
         ))}
