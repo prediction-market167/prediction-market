@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from app.models.question import QuestionTier, TranslationStatus
+from app.models.question import QuestionTier, QuestionStatus, TranslationStatus
 
 
 class QuestionBase(BaseModel):
@@ -24,10 +24,17 @@ class QuestionResponse(BaseModel):
     options_hi: list[str] | None
     correct_option_idx: int
     is_used: bool
+    status: QuestionStatus
     translation_status: TranslationStatus
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class QuestionCountsResponse(BaseModel):
+    unused: int
+    scheduled_unused: int
+    used: int
 
 
 class QuestionUploadRow(BaseModel):

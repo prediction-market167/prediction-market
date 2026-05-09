@@ -11,7 +11,7 @@ import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
 import GemIcon from '@/components/common/GemIcon'
 import questionsApi from '@/api/questions'
 import referralApi from '@/api/referral'
-import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
+import type { Market, MarketOutcome, User, Question, QuestionTier, QuestionStatus } from '@/types'
 
 type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials'
 
@@ -356,7 +356,9 @@ const SAMPLE_CSV_ROWS = [
 ].join('\n')
 
 function downloadSampleCsv() {
-  const blob = new Blob([SAMPLE_CSV_ROWS], { type: 'text/csv;charset=utf-8;' })
+  // UTF-8 BOM ensures Excel opens the file with correct encoding for Cyrillic/Devanagari
+  const BOM = '﻿'
+  const blob = new Blob([BOM + SAMPLE_CSV_ROWS], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -365,22 +367,45 @@ function downloadSampleCsv() {
   URL.revokeObjectURL(url)
 }
 
+const STATUS_FILTER_OPTIONS: Array<{ value: QuestionStatus | 'all'; labelKey: string }> = [
+  { value: 'all', labelKey: 'admin.questions.statusAll' },
+  { value: 'unused', labelKey: 'admin.questions.statusUnused' },
+  { value: 'scheduled_unused', labelKey: 'admin.questions.statusScheduledUnused' },
+  { value: 'used', labelKey: 'admin.questions.statusUsed' },
+]
+
+const STATUS_BADGE_STYLES: Record<QuestionStatus, string> = {
+  unused: 'bg-yes/15 text-yes border-yes/30',
+  scheduled_unused: 'bg-gold/15 text-gold border-gold/30',
+  used: 'bg-surface-600 text-ink-500 border-surface-500',
+}
+
 function QuestionsTab() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all')
+
+  const { data: counts } = useQuery({
+    queryKey: ['admin', 'questions', 'counts'],
+    queryFn: questionsApi.counts,
+  })
 
   const { data: questions = [], isLoading } = useQuery({
-    queryKey: ['admin', 'questions'],
-    queryFn: () => questionsApi.list(),
+    queryKey: ['admin', 'questions', statusFilter],
+    queryFn: () => questionsApi.list(statusFilter === 'all' ? undefined : { status: statusFilter }),
   })
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+  }
 
   const uploadMut = useMutation({
     mutationFn: questionsApi.upload,
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+      invalidate()
       setUploadError(null)
       setUploadSuccess(t('admin.questions.uploadSuccess', { count: data.created }))
       setTimeout(() => setUploadSuccess(null), 5000)
@@ -398,14 +423,19 @@ function QuestionsTab() {
   const triggerMut = useMutation({
     mutationFn: questionsApi.triggerTier,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+      invalidate()
       qc.invalidateQueries({ queryKey: ['markets'] })
     },
   })
 
   const deleteMut = useMutation({
     mutationFn: questionsApi.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'questions'] }),
+    onSuccess: invalidate,
+  })
+
+  const resetMut = useMutation({
+    mutationFn: questionsApi.resetStatus,
+    onSuccess: invalidate,
   })
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -421,7 +451,7 @@ function QuestionsTab() {
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -454,6 +484,39 @@ function QuestionsTab() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Status counts summary */}
+      {counts && (
+        <div className="mb-4 text-xs text-ink-500">
+          {t('admin.questions.statusCounts', {
+            unused: counts.unused,
+            scheduledUnused: counts.scheduled_unused,
+            used: counts.used,
+          })}
+        </div>
+      )}
+
+      {/* Status filter tabs */}
+      <div className="flex gap-1.5 mb-5 flex-wrap">
+        {STATUS_FILTER_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => setStatusFilter(opt.value)}
+            className={`text-xs px-3 py-1.5 rounded-xl font-semibold border transition-colors ${
+              statusFilter === opt.value
+                ? 'bg-brand-purple/20 border-brand-purple/40 text-brand-purple'
+                : 'bg-surface-700 border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200'
+            }`}
+          >
+            {t(opt.labelKey)}
+            {opt.value !== 'all' && counts && (
+              <span className="ml-1.5 opacity-70">
+                {opt.value === 'unused' ? counts.unused : opt.value === 'scheduled_unused' ? counts.scheduled_unused : counts.used}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {uploadError && (
@@ -502,6 +565,7 @@ function QuestionsTab() {
                   t('admin.questions.headers.question'),
                   t('admin.questions.headers.options'),
                   t('admin.questions.headers.langs'),
+                  t('admin.questions.headers.status'),
                   t('admin.questions.headers.actions'),
                 ].map(h => <th key={h} className="text-left text-xs font-medium text-ink-600 pb-3 pr-4">{h}</th>)}
               </tr>
@@ -513,9 +577,6 @@ function QuestionsTab() {
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[q.tier]}`}>
                       {q.tier}
                     </span>
-                    {q.is_used && (
-                      <p className="text-[10px] text-ink-600 mt-1">{t('admin.questions.used')}</p>
-                    )}
                   </td>
                   <td className="py-3 pr-4 max-w-xs">
                     <p className="text-ink-200 text-xs leading-relaxed line-clamp-2">{q.question_mn}</p>
@@ -544,17 +605,34 @@ function QuestionsTab() {
                       })}
                     </div>
                   </td>
+                  <td className="py-3 pr-4">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE_STYLES[q.status] ?? STATUS_BADGE_STYLES.used}`}>
+                      {t(`admin.questions.status${q.status === 'unused' ? 'Unused' : q.status === 'scheduled_unused' ? 'ScheduledUnused' : 'Used'}`)}
+                    </span>
+                  </td>
                   <td className="py-3">
-                    {!q.is_used && (
-                      <button
-                        onClick={() => deleteMut.mutate(q.id)}
-                        disabled={deleteMut.isPending}
-                        className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors disabled:opacity-50"
-                        title={t('admin.questions.delete')}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {q.status === 'scheduled_unused' && (
+                        <button
+                          onClick={() => resetMut.mutate(q.id)}
+                          disabled={resetMut.isPending}
+                          className="p-1.5 rounded-lg text-ink-500 hover:text-gold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                          title={t('admin.questions.resetToUnused')}
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {q.status !== 'used' && (
+                        <button
+                          onClick={() => deleteMut.mutate(q.id)}
+                          disabled={deleteMut.isPending}
+                          className="p-1.5 rounded-lg text-ink-500 hover:text-no hover:bg-no/10 transition-colors disabled:opacity-50"
+                          title={t('admin.questions.delete')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

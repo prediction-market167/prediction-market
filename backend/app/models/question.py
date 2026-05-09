@@ -11,6 +11,12 @@ class QuestionTier(str, enum.Enum):
     HARD = "hard"
 
 
+class QuestionStatus(str, enum.Enum):
+    UNUSED = "unused"                     # never been scheduled
+    SCHEDULED_UNUSED = "scheduled_unused" # scheduled but 0 participants — can reuse
+    USED = "used"                         # shown to ≥1 paid participant — never reuse
+
+
 class TranslationStatus(str, enum.Enum):
     PENDING = "pending"
     DONE = "done"
@@ -36,6 +42,12 @@ class Question(Base, TimestampMixin):
 
     correct_option_idx: Mapped[int] = mapped_column(Integer, nullable=False)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[QuestionStatus] = mapped_column(
+        Enum(QuestionStatus, name="questionstatus"),
+        default=QuestionStatus.UNUSED,
+        nullable=False,
+        server_default="unused",
+    )
     translation_status: Mapped[TranslationStatus] = mapped_column(
         Enum(TranslationStatus, name="translationstatus"),
         default=TranslationStatus.PENDING,

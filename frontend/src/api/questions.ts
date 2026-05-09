@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Question, QuestionTier } from '@/types'
+import type { Question, QuestionTier, QuestionStatus, QuestionCounts } from '@/types'
 
 export interface UploadResult {
   created: number
@@ -7,10 +7,13 @@ export interface UploadResult {
 }
 
 const questionsApi = {
-  list: (tier?: QuestionTier) =>
+  list: (params?: { tier?: QuestionTier; status?: QuestionStatus }) =>
     apiClient
-      .get<Question[]>('/admin/questions', { params: tier ? { tier } : {} })
+      .get<Question[]>('/admin/questions', { params: params ?? {} })
       .then(r => r.data),
+
+  counts: () =>
+    apiClient.get<QuestionCounts>('/admin/questions/counts').then(r => r.data),
 
   upload: (file: File) => {
     const form = new FormData()
@@ -25,6 +28,11 @@ const questionsApi = {
   triggerTier: (tier: QuestionTier) =>
     apiClient
       .post(`/admin/questions/trigger/${tier}`)
+      .then(r => r.data),
+
+  resetStatus: (questionId: number) =>
+    apiClient
+      .post<Question>(`/admin/questions/${questionId}/reset`)
       .then(r => r.data),
 
   delete: (questionId: number) =>

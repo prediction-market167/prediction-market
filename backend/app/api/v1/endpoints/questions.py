@@ -11,8 +11,8 @@ from sqlalchemy import select, func
 from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
 from app.models.user import User
-from app.models.question import Question, QuestionTier, TranslationStatus
-from app.schemas.question import QuestionResponse
+from app.models.question import Question, QuestionTier, QuestionStatus, TranslationStatus
+from app.schemas.question import QuestionResponse, QuestionCountsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,6 @@ def _parse_row(raw: dict) -> dict | str:
     expected_count = TIER_OPTION_COUNT[tier]
     letters = OPTION_LETTERS[:expected_count]
 
-    # Question text — MN required, others fall back to MN if missing
     question_mn = raw.get("question_mn", "").strip()
     if not question_mn:
         return f"Row {row_num}: missing question_mn"
@@ -71,7 +70,6 @@ def _parse_row(raw: dict) -> dict | str:
     question_ru = raw.get("question_ru", "").strip() or question_mn
     question_hi = raw.get("question_hi", "").strip() or question_mn
 
-    # Options per language
     options: dict[str, list[str]] = {lang: [] for lang in LANGUAGES}
     for letter in letters:
         for lang in LANGUAGES:
@@ -81,7 +79,6 @@ def _parse_row(raw: dict) -> dict | str:
                 return f"Row {row_num}: missing {key}"
             options[lang].append(val)
 
-    # Correct answer: a/b/c/d
     correct_raw = raw.get("correct_answer", "").strip().lower()
     if correct_raw not in letters:
         return f"Row {row_num}: correct_answer must be one of {letters} (got '{correct_raw}')"
@@ -101,17 +98,37 @@ def _parse_row(raw: dict) -> dict | str:
     }
 
 
+@router.get("/counts", response_model=QuestionCountsResponse)
+async def question_counts(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """Return count of questions per status."""
+    rows = await db.execute(
+        select(Question.status, func.count(Question.id)).group_by(Question.status)
+    )
+    counts = {r[0]: r[1] for r in rows}
+    return QuestionCountsResponse(
+        unused=counts.get(QuestionStatus.UNUSED, 0),
+        scheduled_unused=counts.get(QuestionStatus.SCHEDULED_UNUSED, 0),
+        used=counts.get(QuestionStatus.USED, 0),
+    )
+
+
 @router.get("/", response_model=List[QuestionResponse])
 async def list_questions(
     tier: QuestionTier | None = None,
+    status: QuestionStatus | None = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 200,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_superuser),
 ):
     query = select(Question)
     if tier:
         query = query.where(Question.tier == tier)
+    if status:
+        query = query.where(Question.status == status)
     query = query.order_by(Question.tier, Question.order_idx).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
@@ -149,7 +166,6 @@ async def upload_questions(
     if errors:
         raise HTTPException(422, detail={"errors": errors})
 
-    # Get next order_idx per tier
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
         count_res = await db.execute(
@@ -176,6 +192,7 @@ async def upload_questions(
             options_hi=row["options_hi"],
             correct_option_idx=row["correct_option_idx"],
             is_used=False,
+            status=QuestionStatus.UNUSED,
             translation_status=TranslationStatus.DONE,
         )
         db.add(q)
@@ -203,10 +220,29 @@ async def trigger_next_question(
     from app.core.game import activate_question_for_tier
     market = await activate_question_for_tier(tier, db, current_user.id)
     if not market:
-        raise HTTPException(404, "No unused questions available for this tier")
+        raise HTTPException(404, "No available questions for this tier")
     await db.commit()
     from app.schemas.market import MarketResponse
     return MarketResponse.model_validate(market)
+
+
+@router.post("/{question_id}/reset", status_code=200)
+async def reset_question_status(
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """Reset a scheduled_unused question back to unused so it goes to the end of the queue."""
+    result = await db.execute(select(Question).where(Question.id == question_id))
+    q = result.scalar_one_or_none()
+    if not q:
+        raise HTTPException(404, "Question not found")
+    if q.status != QuestionStatus.SCHEDULED_UNUSED:
+        raise HTTPException(400, f"Only scheduled_unused questions can be reset (current: {q.status.value})")
+    q.status = QuestionStatus.UNUSED
+    q.is_used = False
+    await db.commit()
+    return QuestionResponse.model_validate(q)
 
 
 @router.delete("/{question_id}", status_code=204)
@@ -219,7 +255,7 @@ async def delete_question(
     q = result.scalar_one_or_none()
     if not q:
         raise HTTPException(404, "Question not found")
-    if q.is_used:
+    if q.status == QuestionStatus.USED:
         raise HTTPException(400, "Cannot delete a question that has already been used")
     await db.delete(q)
     await db.commit()

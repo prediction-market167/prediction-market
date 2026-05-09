@@ -41,17 +41,22 @@ async def _get_system_funds(db: AsyncSession):
 
 
 async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
-    """Find next unused question for tier, create a market, return Market or None."""
-    from app.models.question import Question, QuestionTier
+    """Find next question for tier (scheduled_unused first, then unused), create market."""
+    from app.models.question import Question, QuestionTier, QuestionStatus
     from app.models.market import Market, MarketStatus
 
-    result = await db.execute(
-        select(Question)
-        .where(Question.tier == tier, Question.is_used == False)
-        .order_by(Question.order_idx)
-        .limit(1)
-    )
-    question = result.scalar_one_or_none()
+    # Prefer recycled (scheduled_unused) questions first, then fresh unused ones
+    question = None
+    for status in (QuestionStatus.SCHEDULED_UNUSED, QuestionStatus.UNUSED):
+        res = await db.execute(
+            select(Question)
+            .where(Question.tier == tier, Question.status == status)
+            .order_by(Question.order_idx)
+            .limit(1)
+        )
+        question = res.scalar_one_or_none()
+        if question:
+            break
     if not question:
         return None
 
@@ -83,7 +88,9 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
         close_date=close_date,
     )
     db.add(market)
-    question.is_used = True
+    from app.models.question import QuestionStatus
+    question.is_used = True  # kept for backward compatibility
+    question.status = QuestionStatus.SCHEDULED_UNUSED
     await db.flush()
     await db.refresh(market)
     logger.info("Activated question %s as market %s (tier=%s)", question.id, market.id, tier.value)
@@ -175,6 +182,21 @@ async def _cancel_market(market, db: AsyncSession) -> None:
     market.status = MarketStatus.CANCELLED
     logger.info("Cancelled market %s: %d/%d participants", market.id, len(bets), MIN_PARTICIPANTS)
 
+    # Update question status: recyclable if 0 paid participants, used otherwise
+    if market.question_id:
+        from app.models.question import Question, QuestionStatus
+        q_res = await db.execute(select(Question).where(Question.id == market.question_id))
+        cancelled_question = q_res.scalar_one_or_none()
+        if cancelled_question:
+            if len(bets) == 0:
+                # No one saw/answered — safe to recycle
+                cancelled_question.status = QuestionStatus.SCHEDULED_UNUSED
+                cancelled_question.is_used = False
+            else:
+                # At least one paid participant saw it — mark as used
+                cancelled_question.status = QuestionStatus.USED
+                cancelled_question.is_used = True
+
     # Notify participants of refund (fire-and-forget)
     for bet in bets:
         if bet.amount > 0:
@@ -263,6 +285,15 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
     market.revealed_at = datetime.now(timezone.utc)
     market.status = MarketStatus.RESOLVED
     market.outcome = MarketOutcome.YES if correct_side == "yes" else MarketOutcome.NO
+
+    # Mark question as permanently used (was shown to ≥1 paid participant)
+    if market.question_id:
+        from app.models.question import Question, QuestionStatus
+        q_res = await db.execute(select(Question).where(Question.id == market.question_id))
+        settled_question = q_res.scalar_one_or_none()
+        if settled_question:
+            settled_question.status = QuestionStatus.USED
+            settled_question.is_used = True
 
     logger.info(
         "Settled market %s: %d correct, top %d winners",

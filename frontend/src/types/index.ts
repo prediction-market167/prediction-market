@@ -78,6 +78,7 @@ export interface MarketResultsResponse {
   entries: MarketResultEntry[]
 }
 
+export type QuestionStatus = 'unused' | 'scheduled_unused' | 'used'
 export type TranslationStatus = 'pending' | 'done' | 'failed'
 
 export interface Question {
@@ -94,8 +95,15 @@ export interface Question {
   options_hi?: string[]
   correct_option_idx: number
   is_used: boolean
+  status: QuestionStatus
   translation_status: TranslationStatus
   created_at: string
+}
+
+export interface QuestionCounts {
+  unused: number
+  scheduled_unused: number
+  used: number
 }
 
 export interface ReferralTicket {
