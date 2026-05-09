@@ -12,7 +12,10 @@ from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
 from app.models.user import User
 from app.models.question import Question, QuestionTier, QuestionStatus, TranslationStatus
-from app.schemas.question import QuestionResponse, QuestionCountsResponse
+from app.schemas.question import (
+    QuestionResponse, QuestionCountsResponse,
+    GenerateRequest, GeneratedQuestionItem, SaveBatchRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -243,6 +246,72 @@ async def reset_question_status(
     q.is_used = False
     await db.commit()
     return QuestionResponse.model_validate(q)
+
+
+@router.post("/generate", response_model=List[GeneratedQuestionItem])
+async def generate_questions_endpoint(
+    req: GenerateRequest,
+    _: User = Depends(get_current_superuser),
+):
+    """Generate questions from Wikipedia + Claude. Returns preview list (not saved yet)."""
+    from app.core.question_generate import generate_questions
+    try:
+        questions = await generate_questions(req.category, req.count)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        logger.error("Question generation error: %s", exc)
+        raise HTTPException(500, "Generation failed. Please try again.")
+    if not questions:
+        raise HTTPException(422, "No valid questions were generated. Please try again.")
+    return questions
+
+
+@router.post("/save-batch", status_code=201)
+async def save_generated_questions(
+    req: SaveBatchRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """Persist a batch of generated (and admin-reviewed) questions."""
+    tier_counts: dict[str, int] = {}
+    for tier_val in QuestionTier:
+        count_res = await db.execute(select(func.count()).where(Question.tier == tier_val))
+        tier_counts[tier_val.value] = count_res.scalar_one() or 0
+
+    created = []
+    for item in req.questions:
+        try:
+            tier = QuestionTier(item.tier)
+        except ValueError:
+            continue
+        order_idx = tier_counts[tier.value]
+        tier_counts[tier.value] += 1
+
+        q = Question(
+            tier=tier,
+            order_idx=order_idx,
+            question_mn=item.question_mn,
+            question_en=item.question_en,
+            question_ru=item.question_ru,
+            question_hi=item.question_hi,
+            options_mn=item.options_mn,
+            options_en=item.options_en,
+            options_ru=item.options_ru,
+            options_hi=item.options_hi,
+            correct_option_idx=item.correct_option_idx,
+            is_used=False,
+            status=QuestionStatus.UNUSED,
+            translation_status=TranslationStatus.DONE,
+        )
+        db.add(q)
+        created.append(q)
+
+    await db.flush()
+    for q in created:
+        await db.refresh(q)
+    await db.commit()
+    return {"created": len(created), "questions": [QuestionResponse.model_validate(q) for q in created]}
 
 
 @router.delete("/{question_id}", status_code=204)

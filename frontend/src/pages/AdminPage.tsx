@@ -9,9 +9,10 @@ import {
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
 import GemIcon from '@/components/common/GemIcon'
-import questionsApi from '@/api/questions'
+import questionsApi, { type GeneratedQuestionItem } from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier, QuestionStatus } from '@/types'
+import { Sparkles, X as XIcon } from 'lucide-react'
 
 type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials'
 
@@ -340,6 +341,194 @@ function UsersTab() {
   )
 }
 
+// ─── Generate Modal ───────────────────────────────────────────────────────────
+
+const GENERATE_CATEGORIES = ['Science', 'History', 'Geography', 'Sports', 'Technology', 'Nature', 'Art', 'Economy', 'Random']
+const GENERATE_COUNTS = [10, 20, 50]
+
+function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation()
+  const [category, setCategory] = useState('Science')
+  const [count, setCount] = useState(10)
+  const [preview, setPreview] = useState<GeneratedQuestionItem[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const generateMut = useMutation({
+    mutationFn: () => questionsApi.generate({ category, count }),
+    onSuccess: (data) => {
+      setPreview(data)
+      setError(null)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? t('admin.questions.generateFailed')
+      setError(typeof msg === 'string' ? msg : t('admin.questions.generateFailed'))
+    },
+  })
+
+  const saveMut = useMutation({
+    mutationFn: () => questionsApi.saveBatch(preview ?? []),
+    onSuccess: (data) => {
+      setSuccess(t('admin.questions.generateSuccess', { count: data.created }))
+      setPreview(null)
+      onSaved()
+    },
+    onError: () => setError(t('admin.questions.generateFailed')),
+  })
+
+  const removeItem = (idx: number) => {
+    setPreview(p => p ? p.filter((_, i) => i !== idx) : p)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4">
+      <div className="card w-full max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-ink-100 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-brand-purple" />
+            {t('admin.questions.generateTitle')}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-ink-500 hover:text-ink-100 transition-colors">
+            <XIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {!preview && !success && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.questions.generateCategory')}</label>
+              <select
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                className="input-dark w-full"
+              >
+                {GENERATE_CATEGORIES.map(c => (
+                  <option key={c} value={c}>{t(`admin.questions.generateCategories.${c}`)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.questions.generateCount')}</label>
+              <select
+                value={count}
+                onChange={e => setCount(Number(e.target.value))}
+                className="input-dark w-full"
+              >
+                {GENERATE_COUNTS.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+
+            {error && (
+              <div className="rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no">{error}</div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors">
+                {t('admin.questions.generateClose')}
+              </button>
+              <button
+                onClick={() => generateMut.mutate()}
+                disabled={generateMut.isPending}
+                className="btn-primary text-sm px-5 py-2 flex items-center gap-2 disabled:opacity-50"
+              >
+                {generateMut.isPending
+                  ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.questions.generating')}</>
+                  : <><Sparkles className="w-4 h-4" />{t('admin.questions.generateStart')}</>
+                }
+              </button>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="text-center py-8">
+            <div className="w-12 h-12 rounded-full bg-yes/20 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-6 h-6 text-yes" />
+            </div>
+            <p className="text-yes font-semibold mb-4">{success}</p>
+            <button onClick={onClose} className="btn-primary text-sm px-6 py-2">
+              {t('admin.questions.generateClose')}
+            </button>
+          </div>
+        )}
+
+        {preview && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-ink-300">
+                {t('admin.questions.generatePreview', { count: preview.length })}
+              </p>
+              <button
+                onClick={() => setPreview(null)}
+                className="text-xs text-ink-500 hover:text-ink-200 transition-colors"
+              >
+                ← {t('admin.questions.generateClose')}
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-3 rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no">{error}</div>
+            )}
+
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 mb-4">
+              {preview.map((item, idx) => (
+                <div key={idx} className="rounded-xl border border-surface-600 bg-surface-800 p-3">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[item.tier as QuestionTier] ?? ''}`}>
+                      {item.tier}
+                    </span>
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="p-1 rounded text-ink-600 hover:text-no hover:bg-no/10 transition-colors flex-shrink-0"
+                      title={t('admin.questions.generateRemove')}
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-ink-200 font-medium mb-1.5">{item.question_en}</p>
+                  <p className="text-[10px] text-ink-500 mb-1">{item.question_ru}</p>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {item.options_en.map((opt, oi) => (
+                      <span
+                        key={oi}
+                        className={`text-[10px] px-2 py-0.5 rounded border ${oi === item.correct_option_idx ? 'bg-yes/15 text-yes border-yes/30 font-bold' : 'bg-surface-700 text-ink-500 border-surface-600'}`}
+                      >
+                        {String.fromCharCode(65 + oi)}. {opt}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {preview.length === 0 ? (
+              <p className="text-center text-sm text-ink-500 py-4">{t('admin.questions.generateEmpty')}</p>
+            ) : (
+              <div className="flex justify-end gap-3">
+                <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors">
+                  {t('admin.questions.generateClose')}
+                </button>
+                <button
+                  onClick={() => saveMut.mutate()}
+                  disabled={saveMut.isPending}
+                  className="btn-primary text-sm px-5 py-2 flex items-center gap-2 disabled:opacity-50"
+                >
+                  {saveMut.isPending
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.questions.generateSaving')}</>
+                    : <>{t('admin.questions.generateSaveAll')}</>
+                  }
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Questions Tab ────────────────────────────────────────────────────────────
 
 const SAMPLE_CSV_ROWS = [
@@ -387,6 +576,7 @@ function QuestionsTab() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all')
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
 
   const { data: counts } = useQuery({
     queryKey: ['admin', 'questions', 'counts'],
@@ -450,6 +640,16 @@ function QuestionsTab() {
 
   return (
     <div>
+      {showGenerateModal && (
+        <GenerateModal
+          onClose={() => setShowGenerateModal(false)}
+          onSaved={() => {
+            setShowGenerateModal(false)
+            qc.invalidateQueries({ queryKey: ['admin', 'questions'] })
+          }}
+        />
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
@@ -460,6 +660,14 @@ function QuestionsTab() {
         >
           {uploadMut.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
           {t('admin.questions.upload')}
+        </button>
+
+        <button
+          onClick={() => setShowGenerateModal(true)}
+          className="text-sm px-4 py-2 rounded-xl flex items-center gap-2 bg-brand-purple/20 border border-brand-purple/40 text-brand-purple hover:bg-brand-purple/30 transition-colors"
+        >
+          <Sparkles className="w-4 h-4" />
+          {t('admin.questions.autoGenerate')}
         </button>
 
         <button

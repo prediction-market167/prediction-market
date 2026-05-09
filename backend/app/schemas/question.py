@@ -46,3 +46,25 @@ class QuestionUploadRow(BaseModel):
 
 class TranslationRequest(BaseModel):
     question_id: int
+
+
+class GenerateRequest(BaseModel):
+    category: str
+    count: int
+
+
+class GeneratedQuestionItem(BaseModel):
+    tier: str
+    question_mn: str
+    question_en: str
+    question_ru: str
+    question_hi: str
+    options_mn: list[str]
+    options_en: list[str]
+    options_ru: list[str]
+    options_hi: list[str]
+    correct_option_idx: int
+
+
+class SaveBatchRequest(BaseModel):
+    questions: list[GeneratedQuestionItem]

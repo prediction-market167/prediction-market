@@ -106,6 +106,19 @@ export interface QuestionCounts {
   used: number
 }
 
+export interface GeneratedQuestionItem {
+  tier: string
+  question_mn: string
+  question_en: string
+  question_ru: string
+  question_hi: string
+  options_mn: string[]
+  options_en: string[]
+  options_ru: string[]
+  options_hi: string[]
+  correct_option_idx: number
+}
+
 export interface ReferralTicket {
   id: number
   tier: QuestionTier

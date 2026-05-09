@@ -39,5 +39,8 @@ python-telegram-bot==21.9
 # Excel parsing
 openpyxl>=3.1.2
 
+# AI / LLM
+anthropic>=0.40.0
+
 # Dev Tools
 python-dotenv==1.0.1
