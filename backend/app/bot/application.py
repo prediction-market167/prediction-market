@@ -218,7 +218,7 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
 
         bet_amount = star_payment.bet_amount
         prob = market.yes_probability if star_payment.side == BetSide.YES else market.no_probability
-        potential_payout = bet_amount / prob
+        potential_payout = bet_amount / prob if prob else Decimal("0")
 
         # Credit Stars as deposit, then place bet — keeps balance accounting clean
         balance_before = user.balance
@@ -256,6 +256,29 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
         user.balance -= bet_amount
         db.add(bet_tx)
 
+        # Credit SystemFunds ledgers — same split as balance-funded bets
+        if bet_amount > 0:
+            from app.models.jackpot import SystemFunds
+            funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+            funds = funds_res.scalar_one_or_none()
+            if funds:
+                funds.prize_pool_balance += bet_amount * Decimal("0.50")
+                funds.jackpot_balance += bet_amount * Decimal("0.10")
+                funds.referral_pool_balance += bet_amount * Decimal("0.10")
+                funds.monthly_bonus_balance += bet_amount * Decimal("0.10")
+                funds.admin_profit_balance += bet_amount * Decimal("0.20")
+                funds.total_revenue += bet_amount
+            else:
+                db.add(SystemFunds(
+                    id=1,
+                    prize_pool_balance=bet_amount * Decimal("0.50"),
+                    jackpot_balance=bet_amount * Decimal("0.10"),
+                    referral_pool_balance=bet_amount * Decimal("0.10"),
+                    monthly_bonus_balance=bet_amount * Decimal("0.10"),
+                    admin_profit_balance=bet_amount * Decimal("0.20"),
+                    total_revenue=bet_amount,
+                ))
+
         await db.flush()
         await db.refresh(bet)
 
@@ -264,6 +287,19 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
         star_payment.bet_id = bet.id
 
         await db.commit()
+
+        # Referral bonus — must run after commit so the bet record exists
+        if bet_amount > 0:
+            from app.api.v1.endpoints.bets import _handle_referral_bonus
+            async with AsyncSessionLocal() as ref_db:
+                mkt_res = await ref_db.execute(select(Market).where(Market.id == market.id))
+                mkt = mkt_res.scalar_one_or_none()
+                usr_res = await ref_db.execute(select(User).where(User.id == user.id))
+                usr = usr_res.scalar_one_or_none()
+                if mkt and usr:
+                    await _handle_referral_bonus(mkt, usr, bet_amount, ref_db)
+                    await ref_db.commit()
+
         logger.info("Stars payment processed: payment_id=%s bet_id=%s", star_payment.id, bet.id)
 
 

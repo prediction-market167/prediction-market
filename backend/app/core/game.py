@@ -284,7 +284,14 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
 
     market.revealed_at = datetime.now(timezone.utc)
     market.status = MarketStatus.RESOLVED
-    market.outcome = MarketOutcome.YES if correct_side == "yes" else MarketOutcome.NO
+    # For binary markets correct_side is "yes"/"no"; multi-option uses "opt2"/"opt3".
+    # MarketOutcome only has YES/NO — use YES for option-0 wins, NO for option-1,
+    # and leave UNRESOLVED for opt2/opt3 (correct_option_idx is the authoritative field).
+    if correct_side == "yes":
+        market.outcome = MarketOutcome.YES
+    elif correct_side == "no":
+        market.outcome = MarketOutcome.NO
+    # else: leave as UNRESOLVED — frontend uses correct_option_idx for display
 
     # Mark question as permanently used (was shown to ≥1 paid participant)
     if market.question_id:
