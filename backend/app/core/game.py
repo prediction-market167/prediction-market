@@ -175,6 +175,18 @@ async def _cancel_market(market, db: AsyncSession) -> None:
     market.status = MarketStatus.CANCELLED
     logger.info("Cancelled market %s: %d/%d participants", market.id, len(bets), MIN_PARTICIPANTS)
 
+    # Notify participants of refund (fire-and-forget)
+    for bet in bets:
+        if bet.amount > 0:
+            user_res = await db.execute(select(User).where(User.id == bet.user_id))
+            refunded_user = user_res.scalar_one()
+            if refunded_user.telegram_id:
+                try:
+                    from app.bot.application import send_refund_notification
+                    await send_refund_notification(refunded_user.telegram_id, int(bet.amount), market.id)
+                except Exception as exc:
+                    logger.warning("Refund notification error user=%d: %s", bet.user_id, exc)
+
 
 async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) -> None:
     """
@@ -253,9 +265,21 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
     market.outcome = MarketOutcome.YES if correct_side == "yes" else MarketOutcome.NO
 
     logger.info(
-        "Settled market %s: %d correct, top %d winners, jackpot+=%.0f, monthly+=%.0f",
-        market.id, len(correct_bets), len(top_winners), jackpot_add, monthly_add,
+        "Settled market %s: %d correct, top %d winners",
+        market.id, len(correct_bets), len(top_winners),
     )
+
+    # Send Telegram notifications to top-5 winners (fire-and-forget)
+    for rank, bet in enumerate(top_winners):
+        user_res = await db.execute(select(User).where(User.id == bet.user_id))
+        winner_user = user_res.scalar_one()
+        if winner_user.telegram_id:
+            payout = int(bet.actual_payout or 0)
+            try:
+                from app.bot.application import send_winner_notification
+                await send_winner_notification(winner_user.telegram_id, rank + 1, payout, market.id)
+            except Exception as exc:
+                logger.warning("Winner notification error rank=%d: %s", rank + 1, exc)
 
 
 async def activate_all_tiers(db: AsyncSession, creator_id: int) -> None:

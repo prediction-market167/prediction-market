@@ -8,9 +8,10 @@ from typing import List
 from app.db.session import get_db
 from app.api.v1.deps import get_current_user
 from app.models.user import User
+from app.models.bet import SIDE_TO_OPTION_IDX
 from app.models.market import Market, MarketStatus
 from app.models.bet import Bet, BetStatus
-from app.schemas.market import MarketCreate, MarketUpdate, MarketResponse, MarketResolve
+from app.schemas.market import MarketCreate, MarketUpdate, MarketResponse, MarketResolve, MarketResultEntry, MarketResultsResponse
 
 router = APIRouter()
 
@@ -99,6 +100,87 @@ async def get_market(market_id: int, db: AsyncSession = Depends(get_db)):
     )
     participant_count = count_result.scalar_one() or 0
     return _build_response(market, participant_count)
+
+
+_WINNER_SHARES = [Decimal("0.40"), Decimal("0.25"), Decimal("0.15"), Decimal("0.10"), Decimal("0.10")]
+_IDX_TO_SIDE = {0: "yes", 1: "no", 2: "opt2", 3: "opt3"}
+_SIDE_TO_IDX = {v: k for k, v in _IDX_TO_SIDE.items()}
+
+
+@router.get("/{market_id}/results", response_model=MarketResultsResponse)
+async def market_results(
+    market_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    mkt_res = await db.execute(select(Market).where(Market.id == market_id))
+    market = mkt_res.scalar_one_or_none()
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+    if market.status == MarketStatus.OPEN and not market.revealed_at:
+        raise HTTPException(status_code=403, detail="Results not yet revealed")
+
+    correct_side = _IDX_TO_SIDE.get(market.correct_option_idx, "yes") if market.correct_option_idx is not None else None
+
+    bets_result = await db.execute(
+        select(Bet, User)
+        .join(User, Bet.user_id == User.id)
+        .where(Bet.market_id == market_id, Bet.status != BetStatus.CANCELLED)
+        .order_by(Bet.created_at)
+    )
+    rows = bets_result.all()
+
+    correct_rows = [(b, u) for b, u in rows if correct_side and b.side.value == correct_side]
+    incorrect_rows = [(b, u) for b, u in rows if not correct_side or b.side.value != correct_side]
+
+    total_pool = sum(b.amount for b, _ in rows)
+    winner_pool = total_pool * Decimal("0.50")
+
+    market_start = market.created_at.replace(tzinfo=timezone.utc) if market.created_at.tzinfo is None else market.created_at
+
+    entries: list[MarketResultEntry] = []
+    your_rank: int | None = None
+
+    for rank_0, (bet, user) in enumerate(correct_rows):
+        rank = rank_0 + 1
+        prize = Decimal(int(winner_pool * _WINNER_SHARES[rank_0])) if rank_0 < 5 else Decimal("0")
+        bet_time = bet.created_at.replace(tzinfo=timezone.utc) if bet.created_at.tzinfo is None else bet.created_at
+        elapsed = max(0.0, (bet_time - market_start).total_seconds())
+        is_you = user.id == current_user.id
+        if is_you:
+            your_rank = rank
+        entries.append(MarketResultEntry(
+            rank=rank,
+            username=user.username or f"Player{user.id}",
+            option_idx=_SIDE_TO_IDX.get(bet.side.value, 0),
+            elapsed_seconds=elapsed,
+            is_correct=True,
+            prize=prize,
+            is_you=is_you,
+        ))
+
+    for rank_0, (bet, user) in enumerate(incorrect_rows):
+        rank = len(correct_rows) + rank_0 + 1
+        bet_time = bet.created_at.replace(tzinfo=timezone.utc) if bet.created_at.tzinfo is None else bet.created_at
+        elapsed = max(0.0, (bet_time - market_start).total_seconds())
+        is_you = user.id == current_user.id
+        entries.append(MarketResultEntry(
+            rank=rank,
+            username=user.username or f"Player{user.id}",
+            option_idx=_SIDE_TO_IDX.get(bet.side.value, 0),
+            elapsed_seconds=elapsed,
+            is_correct=False,
+            prize=Decimal("0"),
+            is_you=is_you,
+        ))
+
+    return MarketResultsResponse(
+        total_participants=len(rows),
+        correct_count=len(correct_rows),
+        prize_pool=winner_pool,
+        your_rank=your_rank,
+        entries=entries,
+    )
 
 
 @router.patch("/{market_id}", response_model=MarketResponse)

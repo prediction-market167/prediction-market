@@ -1,7 +1,7 @@
 from pydantic import BaseModel, field_validator
 from decimal import Decimal
 from datetime import datetime
-from typing import Any
+from typing import Any, List
 from app.models.market import MarketStatus, MarketOutcome
 
 
@@ -50,3 +50,21 @@ class MarketResponse(MarketBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MarketResultEntry(BaseModel):
+    rank: int
+    username: str
+    option_idx: int
+    elapsed_seconds: float
+    is_correct: bool
+    prize: Decimal
+    is_you: bool
+
+
+class MarketResultsResponse(BaseModel):
+    total_participants: int
+    correct_count: int
+    prize_pool: Decimal
+    your_rank: int | None
+    entries: List[MarketResultEntry]

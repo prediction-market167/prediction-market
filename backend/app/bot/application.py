@@ -141,6 +141,41 @@ async def terms_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+async def send_winner_notification(telegram_id: int, rank: int, prize: int, market_id: int) -> None:
+    rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    emoji = rank_emojis[rank - 1] if 1 <= rank <= 5 else "🏅"
+    text = (
+        f"{emoji} *You placed \\#{rank}\\!*\n\n"
+        f"You won *{prize:,} 💎* from quiz \\#{market_id}\\!\n"
+        f"Your balance has been updated\\."
+    )
+    try:
+        await get_application().bot.send_message(
+            chat_id=telegram_id,
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        )
+    except Exception as exc:
+        logger.warning("Winner notification failed telegram_id=%s: %s", telegram_id, exc)
+
+
+async def send_refund_notification(telegram_id: int, amount: int, market_id: int) -> None:
+    text = (
+        f"💫 *Contest \\#{market_id} cancelled*\n\n"
+        f"Not enough players joined\\. Your entry fee of *{amount} 💎* has been refunded to your balance\\."
+    )
+    try:
+        await get_application().bot.send_message(
+            chat_id=telegram_id,
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        )
+    except Exception as exc:
+        logger.warning("Refund notification failed telegram_id=%s: %s", telegram_id, exc)
+
+
 async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.pre_checkout_query.answer(ok=True)
 

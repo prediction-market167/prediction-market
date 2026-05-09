@@ -60,6 +60,24 @@ export interface Bet {
   created_at: string
 }
 
+export interface MarketResultEntry {
+  rank: number
+  username: string
+  option_idx: number
+  elapsed_seconds: number
+  is_correct: boolean
+  prize: number
+  is_you: boolean
+}
+
+export interface MarketResultsResponse {
+  total_participants: number
+  correct_count: number
+  prize_pool: number
+  your_rank: number | null
+  entries: MarketResultEntry[]
+}
+
 export type TranslationStatus = 'pending' | 'done' | 'failed'
 
 export interface Question {

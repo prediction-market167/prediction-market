@@ -204,8 +204,11 @@ async def my_bets(
     current_user: User = Depends(get_current_user),
     skip: int = 0,
     limit: int = 20,
+    market_id: int | None = None,
 ):
-    result = await db.execute(
-        select(Bet).where(Bet.user_id == current_user.id).order_by(Bet.created_at.desc()).offset(skip).limit(limit)
-    )
+    query = select(Bet).where(Bet.user_id == current_user.id)
+    if market_id is not None:
+        query = query.where(Bet.market_id == market_id, Bet.status != BetStatus.CANCELLED)
+    query = query.order_by(Bet.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(query)
     return result.scalars().all()

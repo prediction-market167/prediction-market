@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { Market } from '@/types'
+import type { Market, MarketResultsResponse } from '@/types'
 
 export const marketsApi = {
   list: (params?: { status?: string; category?: string; tier?: string; skip?: number; limit?: number }) =>
@@ -13,4 +13,7 @@ export const marketsApi = {
 
   resolve: (id: number, outcome: 'yes' | 'no') =>
     apiClient.post<Market>(`/markets/${id}/resolve`, { outcome }).then((r) => r.data),
+
+  results: (id: number) =>
+    apiClient.get<MarketResultsResponse>(`/markets/${id}/results`).then((r) => r.data),
 }
