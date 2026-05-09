@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { Market } from '@/types'
 import { Timer, Users, Eye, Loader2, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import GemIcon from '@/components/common/GemIcon'
 
 interface Tier {
   id: string
@@ -144,8 +145,9 @@ export default function MarketCard({ market, tier }: Props) {
         {isQuiz && Number(market.total_volume) > 0 && (
           <div className="flex items-center gap-1.5 mb-3">
             <Zap className="w-3.5 h-3.5 text-gold flex-shrink-0" />
-            <span className="text-base font-black text-gold">
-              {Number(market.total_volume).toLocaleString()} ⭐
+            <span className="text-base font-black text-gold flex items-center gap-1">
+              {Number(market.total_volume).toLocaleString()}
+              <GemIcon className="w-4 h-4" />
             </span>
           </div>
         )}

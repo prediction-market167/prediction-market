@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { marketsApi } from '@/api/markets'
 import MarketCard from '@/components/markets/MarketCard'
-import { Gift, Star, Flame, Gem, Users } from 'lucide-react'
+import { Gift, Star, Flame, Gem } from 'lucide-react'
+import GemIcon from '@/components/common/GemIcon'
 import type { LucideIcon } from 'lucide-react'
 
 interface Tier {
@@ -184,8 +185,8 @@ export default function MarketsPage() {
           </span>
           {activeTierData.stars > 0 && (
             <span className="flex items-center gap-1 text-xs font-bold text-gold">
-              <Users className="w-3 h-3" />
-              {activeTierData.stars} ⭐
+              <GemIcon className="w-3.5 h-3.5" />
+              {activeTierData.stars}
             </span>
           )}
         </div>

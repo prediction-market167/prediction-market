@@ -11,6 +11,7 @@ import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
   Eye, EyeOff, Loader2, Wallet, Gift, Zap,
 } from 'lucide-react'
+import GemIcon from '@/components/common/GemIcon'
 import type { BetSide } from '@/types'
 import Confetti from '@/components/common/Confetti'
 
@@ -311,17 +312,34 @@ export default function MarketDetailPage() {
         )}
 
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { icon: TrendingUp, label: t('market.volume'), value: `⭐${Number(market.total_volume).toLocaleString()}` },
-            { icon: Clock, label: t('market.closes'), value: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-            { icon: Users, label: t('market.players'), value: isDarkPool ? '—' : `${participantCount}${isPoolActive ? ' ✓' : ''}` },
-          ].map(({ icon: Icon, label, value }) => (
+          {([
+            {
+              icon: TrendingUp,
+              label: t('market.volume'),
+              node: (
+                <span className="flex items-center gap-1">
+                  <GemIcon className="w-3.5 h-3.5" />
+                  {Number(market.total_volume).toLocaleString()}
+                </span>
+              ),
+            },
+            {
+              icon: Clock,
+              label: t('market.closes'),
+              node: new Date(market.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            },
+            {
+              icon: Users,
+              label: t('market.players'),
+              node: isDarkPool ? '—' : `${participantCount}${isPoolActive ? ' ✓' : ''}`,
+            },
+          ] as const).map(({ icon: Icon, label, node }) => (
             <div key={label} className="bg-surface-700 border border-surface-600 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Icon className="w-3.5 h-3.5 text-ink-600" />
                 <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{label}</span>
               </div>
-              <p className="text-sm font-bold text-ink-100">{value}</p>
+              <p className="text-sm font-bold text-ink-100">{node}</p>
             </div>
           ))}
         </div>
@@ -418,7 +436,7 @@ export default function MarketDetailPage() {
                 <div className="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 bg-emerald-500/10 border border-emerald-500/30">
                   <Gift className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                   <span className="text-sm font-bold text-emerald-400">{t('game.freeEntry')}</span>
-                  <span className="text-xs text-ink-500 ml-auto">0 ⭐</span>
+                  <span className="text-xs text-ink-500 ml-auto flex items-center gap-0.5">0 <GemIcon className="w-3 h-3" /></span>
                 </div>
               ) : (
                 <div className="mb-4">
@@ -470,8 +488,8 @@ export default function MarketDetailPage() {
                 <div className="bg-surface-700 border border-surface-600 rounded-xl p-4 mb-4 flex justify-between items-center">
                   <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
                   <span className="text-sm font-black text-gold flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 fill-gold" />
-                    {betAmount} ⭐ · {t('game.fixed')}
+                    <GemIcon className="w-3.5 h-3.5" />
+                    {betAmount} · {t('game.fixed')}
                   </span>
                 </div>
               )}
@@ -508,7 +526,7 @@ export default function MarketDetailPage() {
                     <><Gift className="w-4 h-4" />{t('game.submitFree')}</>
                   ) : (
                     <>
-                      <Star className="w-4 h-4 fill-surface-900 text-surface-900" />
+                      <GemIcon className="w-4 h-4" />
                       {isQuiz
                         ? t('game.submitAnswer', { stars: betAmount, option: OPTION_LABELS[selectedOption] })
                         : t('market.payButton', { stars: betAmount, side: side.toUpperCase() })

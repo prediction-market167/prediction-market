@@ -10,6 +10,7 @@ import {
   Wallet, TrendingUp, CheckCircle, XCircle, Clock, Ban,
   Users, Gift, Copy, Check, Ticket,
 } from 'lucide-react'
+import GemIcon from '@/components/common/GemIcon'
 import type { Bet, BetStatus } from '@/types'
 import {
   AreaChart,
@@ -128,8 +129,8 @@ function ReferralSection() {
           <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
             {t('referral.lifetimeEarnings')}
           </p>
-          <p className="text-2xl font-black text-gold">
-            {Number(info?.lifetime_earnings ?? 0).toLocaleString()} ⭐
+          <p className="text-2xl font-black text-gold flex items-center gap-1">
+            {Number(info?.lifetime_earnings ?? 0).toLocaleString()} <GemIcon className="w-5 h-5" />
           </p>
         </div>
       </div>
@@ -276,12 +277,32 @@ export default function PortfolioPage() {
       {/* Stats */}
       {user && (
         <div className="grid grid-cols-2 gap-3 mb-8">
-          {[
-            { label: t('portfolio.stats.balance'), value: `${Number(user.balance).toLocaleString()} ⭐`, Icon: Wallet, color: 'text-gold' },
-            { label: t('portfolio.stats.totalWagered'), value: `${totalWagered.toLocaleString()} ⭐`, Icon: TrendingUp, color: 'text-ink-200' },
-            { label: t('portfolio.stats.totalBets'), value: String(bets?.length ?? 0), Icon: Clock, color: 'text-ink-200' },
-            { label: t('portfolio.stats.winRate'), value: `${winRate}%`, Icon: CheckCircle, color: winRate >= 50 ? 'text-yes' : 'text-ink-200' },
-          ].map(({ label, value, Icon, color }) => (
+          {([
+            {
+              label: t('portfolio.stats.balance'),
+              node: <span className="flex items-center gap-1">{Number(user.balance).toLocaleString()} <GemIcon className="w-5 h-5" /></span>,
+              Icon: Wallet,
+              color: 'text-gold',
+            },
+            {
+              label: t('portfolio.stats.totalWagered'),
+              node: <span className="flex items-center gap-1">{totalWagered.toLocaleString()} <GemIcon className="w-5 h-5" /></span>,
+              Icon: TrendingUp,
+              color: 'text-ink-200',
+            },
+            {
+              label: t('portfolio.stats.totalBets'),
+              node: String(bets?.length ?? 0),
+              Icon: Clock,
+              color: 'text-ink-200',
+            },
+            {
+              label: t('portfolio.stats.winRate'),
+              node: `${winRate}%`,
+              Icon: CheckCircle,
+              color: winRate >= 50 ? 'text-yes' : 'text-ink-200',
+            },
+          ] as const).map(({ label, node, Icon, color }) => (
             <div key={label} className="card">
               <div className="flex items-center gap-2 mb-3">
                 <Icon className={`w-4 h-4 ${color}`} />
@@ -289,7 +310,7 @@ export default function PortfolioPage() {
                   {label}
                 </span>
               </div>
-              <p className={`text-2xl font-black ${color}`}>{value}</p>
+              <p className={`text-2xl font-black ${color}`}>{node}</p>
             </div>
           ))}
         </div>
@@ -305,8 +326,8 @@ export default function PortfolioPage() {
                 <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
                   {t('portfolio.pnl')}
                 </p>
-                <p className={`text-2xl font-black ${pnlPositive ? 'text-yes' : 'text-no'}`}>
-                  {pnlPositive ? '+' : ''}{totalPnl.toFixed(2)} ⭐
+                <p className={`text-2xl font-black flex items-center gap-1 ${pnlPositive ? 'text-yes' : 'text-no'}`}>
+                  {pnlPositive ? '+' : ''}{totalPnl.toFixed(2)} <GemIcon className="w-5 h-5" />
                 </p>
               </div>
               <span
@@ -348,12 +369,12 @@ export default function PortfolioPage() {
                   tick={{ fill: '#6b5fa0', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `${v}⭐`}
+                  tickFormatter={(v) => `${v}💎`}
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   cursor={{ stroke: '#362585', strokeWidth: 1 }}
-                  formatter={(v: number) => [`${v.toFixed(2)} ⭐`, t('portfolio.pnlLabel')]}
+                  formatter={(v: number) => [`${v.toFixed(2)} 💎`, t('portfolio.pnlLabel')]}
                 />
                 <Area
                   type="monotone"
@@ -450,11 +471,11 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-black text-ink-100">
-                    {Number(bet.amount).toLocaleString()} ⭐
+                  <p className="text-sm font-black text-ink-100 flex items-center gap-1">
+                    {Number(bet.amount).toLocaleString()} <GemIcon className="w-3.5 h-3.5" />
                   </p>
-                  <p className="text-xs text-ink-600 mt-0.5">
-                    → {Number(bet.potential_payout).toFixed(0)} ⭐
+                  <p className="text-xs text-ink-600 mt-0.5 flex items-center gap-0.5">
+                    → {Number(bet.potential_payout).toFixed(0)} <GemIcon className="w-3 h-3" />
                   </p>
                 </div>
               </div>

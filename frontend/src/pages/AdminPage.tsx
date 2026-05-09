@@ -8,6 +8,7 @@ import {
   Zap, Bell, AlertTriangle, Send, Settings, ShieldOff, DollarSign,
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
+import GemIcon from '@/components/common/GemIcon'
 import questionsApi from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier } from '@/types'
@@ -230,7 +231,9 @@ function MarketsTab() {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_BADGE[m.status]}`}>{m.status}</span>
                   </td>
                   <td className="py-3 pr-4"><ParticipantBadge count={m.participant_count} /></td>
-                  <td className="py-3 pr-4 text-ink-300">⭐{Number(m.total_volume).toLocaleString()}</td>
+                  <td className="py-3 pr-4 text-ink-300">
+                    <span className="flex items-center gap-1"><GemIcon className="w-3.5 h-3.5" />{Number(m.total_volume).toLocaleString()}</span>
+                  </td>
                   <td className="py-3 pr-4 text-ink-400 text-xs whitespace-nowrap">{format(new Date(m.close_date), 'MMM d, HH:mm')}</td>
                   <td className="py-3">
                     <div className="flex items-center gap-1">
@@ -303,7 +306,9 @@ function UsersTab() {
                     <p className="text-ink-100 font-medium">{u.username}</p>
                     <p className="text-xs text-ink-600">{u.email}</p>
                   </td>
-                  <td className="py-3 pr-4 text-ink-300">⭐{Number(u.balance).toLocaleString()}</td>
+                  <td className="py-3 pr-4 text-ink-300">
+                    <span className="flex items-center gap-1"><GemIcon className="w-3.5 h-3.5" />{Number(u.balance).toLocaleString()}</span>
+                  </td>
                   <td className="py-3 pr-4">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${u.is_active ? 'bg-yes/20 text-yes border-yes/30' : 'bg-no/20 text-no border-no/30'}`}>
                       {u.is_active ? t('admin.users.active') : t('admin.users.inactive')}
@@ -618,8 +623,8 @@ function JackpotTab() {
         </div>
         <div>
           <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest">{t('jackpot.balance')}</p>
-          <p className={`text-2xl font-black ${hasBalance ? 'text-yellow-400' : 'text-ink-600'}`}>
-            ⭐ {jackpotBalance.toLocaleString()}
+          <p className={`text-2xl font-black flex items-center gap-1.5 ${hasBalance ? 'text-yellow-400' : 'text-ink-600'}`}>
+            <GemIcon className="w-6 h-6" />{jackpotBalance.toLocaleString()}
           </p>
           {!hasBalance && <p className="text-xs text-ink-600 mt-0.5">{t('jackpot.noBalance')}</p>}
         </div>
@@ -745,7 +750,9 @@ function JackpotTab() {
                   <tr key={h.id}>
                     <td className="py-3 pr-4 text-xs text-ink-400 whitespace-nowrap">{format(new Date(h.created_at), 'MMM d, HH:mm')}</td>
                     <td className="py-3 pr-4 text-ink-100 font-semibold">@{h.winner_username}</td>
-                    <td className="py-3 pr-4 text-yellow-400 font-bold">⭐{Number(h.amount).toLocaleString()}</td>
+                    <td className="py-3 pr-4 text-yellow-400 font-bold">
+                      <span className="flex items-center gap-1"><GemIcon className="w-3.5 h-3.5" />{Number(h.amount).toLocaleString()}</span>
+                    </td>
                     <td className="py-3 text-xs text-ink-500">
                       {h.criteria?.type === 'contest_count'
                         ? `≥${h.criteria.min_contests} contests / ${h.criteria.days}d`
@@ -1035,8 +1042,8 @@ function FinancialsTab() {
         {ledgers.map(({ label, value, color, bg }) => (
           <div key={label} className={`rounded-2xl p-5 border ${bg}`}>
             <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">{label}</p>
-            <p className={`text-2xl font-black ${color}`}>
-              ⭐ {Number(value).toLocaleString()}
+            <p className={`text-2xl font-black flex items-center gap-1.5 ${color}`}>
+              <GemIcon className="w-5 h-5" />{Number(value).toLocaleString()}
             </p>
           </div>
         ))}

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Zap, Shield, ArrowRight, Brain, Trophy } from 'lucide-react'
 import referralApi from '@/api/referral'
 import leaderboardApi from '@/api/leaderboard'
+import { usersApi } from '@/api/users'
+import GemIcon from '@/components/common/GemIcon'
 
 function useCountUp(target: number) {
   const [val, setVal] = useState(0)
@@ -82,6 +84,15 @@ export default function HomePage() {
     queryFn: referralApi.jackpot,
     refetchInterval: 30_000,
   })
+
+  const { data: settings } = useQuery({
+    queryKey: ['platform-settings'],
+    queryFn: usersApi.platformSettings,
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  const tonToGemsRate = settings?.stars_to_ton_rate ?? 300
 
   const jackpotAmount = jackpot?.jackpot_balance ?? 0
   const animatedJackpot = useCountUp(Number(jackpotAmount))
@@ -161,15 +172,32 @@ export default function HomePage() {
 
           {/* Animated counter */}
           <p
-            className="text-5xl sm:text-6xl font-black text-gradient-gold text-glow-gold mb-1 tabular-nums"
+            className="text-5xl sm:text-6xl font-black text-gradient-gold text-glow-gold mb-1 tabular-nums flex items-center justify-center gap-3"
             style={{ animation: animatedJackpot > 0 ? 'pulseGold 2s ease-in-out infinite' : undefined }}
           >
-            {animatedJackpot > 0
-              ? `${animatedJackpot.toLocaleString()} ⭐`
-              : t('home.jackpotEmpty')}
+            {animatedJackpot > 0 ? (
+              <>
+                {animatedJackpot.toLocaleString()}
+                <GemIcon className="w-12 h-12 sm:w-14 sm:h-14" />
+              </>
+            ) : (
+              t('home.jackpotEmpty')
+            )}
           </p>
 
-          <p className="text-xs text-ink-500 mb-5">{t('home.jackpotDesc')}</p>
+          <p className="text-xs text-ink-500 mb-4">{t('home.jackpotDesc')}</p>
+
+          {/* Exchange rate pills */}
+          <div className="flex items-center justify-center gap-3 mb-5 flex-wrap">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-brand-purple/40 bg-brand-purple/10 text-xs font-bold text-brand-purple">
+              <GemIcon className="w-3.5 h-3.5" />
+              {t('home.tonToGems', { rate: tonToGemsRate })}
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold/30 bg-gold/10 text-xs font-bold text-gold">
+              <GemIcon className="w-3.5 h-3.5" />
+              {t('home.starToGem')}
+            </div>
+          </div>
 
           {/* Countdown timer pill */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

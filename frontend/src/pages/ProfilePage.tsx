@@ -10,9 +10,12 @@ import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import leaderboardApi from '@/api/leaderboard'
 import { Link } from 'react-router-dom'
 import {
-  User as UserIcon, Star, Copy, Check, Ticket, CheckCircle, Gift, Users,
+  User as UserIcon, Copy, Check, Ticket, CheckCircle, Gift, Users,
   LogOut, ArrowUpFromLine, AlertCircle,
 } from 'lucide-react'
+import GemIcon from '@/components/common/GemIcon'
+
+const MIN_WITHDRAW = 500
 
 const WEEKLY_BADGES: Record<number, { emoji: string; labelKey: string; color: string }> = {
   1: { emoji: '🥇', labelKey: 'leaderboard.badgeChampion', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
@@ -144,7 +147,7 @@ export default function ProfilePage() {
               {t('profile.balance')}
             </p>
             <p className="text-xl font-black text-gold flex items-center gap-1">
-              <Star className="w-4 h-4" />
+              <GemIcon className="w-4 h-4" />
               {userBalance.toLocaleString()}
             </p>
           </div>
@@ -226,7 +229,10 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            <p className="text-xs text-ink-600">{t('wallet.rate', { rate })}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-ink-600">{t('wallet.rate', { rate })}</p>
+              <p className="text-xs text-ink-600">{t('wallet.minWithdrawal')}</p>
+            </div>
 
             {withdrawResult?.status === 'pending' && (
               <div className="rounded-xl p-4 bg-yes/10 border border-yes/30">
@@ -252,6 +258,7 @@ export default function ProfilePage() {
               disabled={
                 !parsedAmount ||
                 parsedAmount <= 0 ||
+                parsedAmount < MIN_WITHDRAW ||
                 parsedAmount > userBalance ||
                 withdrawMut.isPending
               }
@@ -264,6 +271,9 @@ export default function ProfilePage() {
               )}
             </button>
 
+            {parsedAmount > 0 && parsedAmount < MIN_WITHDRAW && (
+              <p className="text-xs text-no text-center">{t('wallet.minWithdrawalError')}</p>
+            )}
             {parsedAmount > userBalance && (
               <p className="text-xs text-no text-center">{t('wallet.insufficientBalance')}</p>
             )}
@@ -295,8 +305,9 @@ export default function ProfilePage() {
             <p className="text-xs text-ink-600 font-semibold uppercase tracking-widest mb-1">
               {t('referral.lifetimeEarnings')}
             </p>
-            <p className="text-2xl font-black text-gold">
-              {Number(referral?.lifetime_earnings ?? 0).toLocaleString()} ⭐
+            <p className="text-2xl font-black text-gold flex items-center gap-1">
+              {Number(referral?.lifetime_earnings ?? 0).toLocaleString()}
+              <GemIcon className="w-5 h-5" />
             </p>
           </div>
         </div>

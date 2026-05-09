@@ -48,8 +48,8 @@ export default function TermsPage() {
           <section>
             <h2 className="text-base font-bold text-white mb-2">4. Telegram Stars & Payments</h2>
             <ul className="list-disc list-inside space-y-1">
-              <li>Entry fees are denominated in Telegram Stars (⭐), purchased through Telegram's own payment system.</li>
-              <li>1 ⭐ = 1 in-app credit. Stars have no guaranteed monetary value outside of Telegram's ecosystem.</li>
+              <li>Entry fees are denominated in Gems (💎), the in-app currency. Gems can be purchased with Telegram Stars (⭐) at a 1:1 rate.</li>
+              <li>1 ⭐ = 1 💎. Stars have no guaranteed monetary value outside of Telegram's ecosystem.</li>
               <li>All purchases are final. Refunds are only issued automatically when a contest is cancelled due to insufficient participants.</li>
               <li>We are not responsible for issues arising from Telegram's payment infrastructure.</li>
             </ul>
