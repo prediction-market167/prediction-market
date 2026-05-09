@@ -6,17 +6,18 @@ import { marketsApi } from '@/api/markets'
 import paymentsApi from '@/api/payments'
 import { betsApi } from '@/api/bets'
 import { authApi } from '@/api/auth'
+import referralApi from '@/api/referral'
 import { useAppSelector } from '@/hooks/useStore'
 import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
-  Eye, EyeOff, Loader2, Wallet, Gift, Zap, Lock,
+  Eye, EyeOff, Loader2, Wallet, Gift, Zap, Lock, Ticket,
 } from 'lucide-react'
 import GemIcon from '@/components/common/GemIcon'
 import type { BetSide, MarketResultEntry } from '@/types'
 import Confetti from '@/components/common/Confetti'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
-type PaymentMethod = 'balance' | 'stars'
+type PaymentMethod = 'balance' | 'stars' | 'ticket'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 20
@@ -81,6 +82,19 @@ export default function MarketDetailPage() {
     queryFn: () => marketsApi.results(Number(id)),
     enabled: !!token && !!market && (market.status === 'resolved' || market.status === 'cancelled'),
   })
+
+  // Fetch available referral tickets
+  const { data: referralInfo } = useQuery({
+    queryKey: ['referral-info'],
+    queryFn: referralApi.info,
+    enabled: !!token,
+    staleTime: 30_000,
+  })
+
+  // Find a usable ticket that matches this market's tier
+  const matchingTicket = referralInfo?.tickets.find(
+    (tk) => !tk.is_used && market?.tier && tk.tier === market.tier
+  ) ?? null
 
   const userBalance = Number(me?.balance ?? 0)
   const canPayBalance = userBalance >= BET_AMOUNT
@@ -193,7 +207,38 @@ export default function MarketDetailPage() {
     }
   }, [id, side, queryClient, t])
 
-  const handleSubmit = isFree || paymentMethod === 'balance' ? handleBalanceBet : handleStarsBet
+  const handleTicketBet = useCallback(async () => {
+    if (!matchingTicket) return
+    setErrorMsg('')
+    setPaymentState('verifying')
+    try {
+      const bet = await betsApi.useTicket({
+        market_id: Number(id),
+        ticket_id: matchingTicket.id,
+        side,
+        amount: 0,
+      })
+      submissionTimestampRef.current = Date.now()
+      setPlacedBetId(bet.id)
+      setPaymentState('success')
+      queryClient.invalidateQueries({ queryKey: ['market', id] })
+      queryClient.invalidateQueries({ queryKey: ['my-bets'] })
+      queryClient.invalidateQueries({ queryKey: ['my-bet-for-market', id] })
+      queryClient.invalidateQueries({ queryKey: ['referral-info'] })
+      queryClient.invalidateQueries({ queryKey: ['me'] })
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.detail ?? t('market.errors.betFailed'))
+      setPaymentState('error')
+    }
+  }, [id, side, matchingTicket, queryClient, t])
+
+  const handleSubmit = isFree
+    ? handleBalanceBet
+    : paymentMethod === 'ticket'
+      ? handleTicketBet
+      : paymentMethod === 'balance'
+        ? handleBalanceBet
+        : handleStarsBet
 
   const resetPayment = () => {
     setPaymentState('idle')
@@ -525,10 +570,18 @@ export default function MarketDetailPage() {
                 </div>
               ) : (
                 <div className="mb-4">
+                  {matchingTicket && (
+                    <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30">
+                      <Ticket className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <span className="text-sm font-bold text-emerald-400">
+                        {t('referral.ticketAvailable', { tier: market!.tier!.toUpperCase() })}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
                     {t('payment.chooseMethod')}
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid gap-2 ${matchingTicket ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <button
                       onClick={() => setPaymentMethod('balance')}
                       disabled={isBusy || !canPayBalance}
@@ -561,6 +614,23 @@ export default function MarketDetailPage() {
                       </div>
                       <p className="text-xs font-normal opacity-70">Telegram Stars</p>
                     </button>
+                    {matchingTicket && (
+                      <button
+                        onClick={() => setPaymentMethod('ticket')}
+                        disabled={isBusy}
+                        className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                          paymentMethod === 'ticket'
+                            ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-400'
+                            : 'border-emerald-500/30 text-emerald-500/70 hover:border-emerald-500/50 hover:text-emerald-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <Ticket className="w-3.5 h-3.5" />
+                          {t('referral.useTicket')}
+                        </div>
+                        <p className="text-xs font-normal opacity-70">0 💎</p>
+                      </button>
+                    )}
                   </div>
                   {paymentMethod === 'balance' && !canPayBalance && (
                     <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
@@ -568,7 +638,7 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
-              {!isFree && (
+              {!isFree && paymentMethod !== 'ticket' && (
                 <div className="bg-surface-700 border border-surface-600 rounded-xl p-4 mb-4 flex justify-between items-center">
                   <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">{t('market.amount')}</span>
                   <span className="text-sm font-black text-gold flex items-center gap-1.5">
@@ -596,11 +666,17 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
+                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {
+                    paymentMethod === 'ticket' ? t('referral.usingTicket')
+                    : isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance')
+                    : t('market.confirmingBet')
+                  }</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
                   isFree ? (
                     <><Gift className="w-4 h-4" />{t('game.submitFree')}</>
+                  ) : paymentMethod === 'ticket' ? (
+                    <><Ticket className="w-4 h-4" />{t('referral.useTicket')} · {OPTION_LABELS[selectedOption]}</>
                   ) : (
                     <>
                       <GemIcon className="w-4 h-4" />

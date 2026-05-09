@@ -12,8 +12,13 @@ from app.models.market import Market, MarketStatus
 from app.models.bet import Bet, BetSide, BetStatus
 from app.models.transaction import Transaction, TransactionType
 from app.models.jackpot import SystemFunds
+from app.models.referral_ticket import ReferralTicket
 from app.schemas.bet import BetCreate, BetResponse
 from app.core.rate_limit import check_bet_rate_limit
+
+
+class UseTicketRequest(BetCreate):
+    ticket_id: int
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +197,60 @@ async def place_bet(
             ))
 
     await _handle_referral_bonus(market, current_user, amount, db)
+
+    await db.flush()
+    await db.refresh(bet)
+    return bet
+
+
+@router.post("/use-ticket", response_model=BetResponse, status_code=status.HTTP_201_CREATED)
+async def use_ticket(
+    req: UseTicketRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Redeem a referral milestone ticket for a free entry in a matching-tier contest."""
+    if current_user.is_blocked:
+        raise HTTPException(status_code=403, detail="account_blocked")
+
+    ticket_res = await db.execute(
+        select(ReferralTicket).where(
+            ReferralTicket.id == req.ticket_id,
+            ReferralTicket.user_id == current_user.id,
+        )
+    )
+    ticket = ticket_res.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    if ticket.is_used:
+        raise HTTPException(status_code=400, detail="Ticket already used")
+
+    market_res = await db.execute(select(Market).where(Market.id == req.market_id))
+    market = market_res.scalar_one_or_none()
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+    if market.status != MarketStatus.OPEN:
+        raise HTTPException(status_code=400, detail="Market is not open")
+    if not market.tier or market.tier == "free":
+        raise HTTPException(status_code=400, detail="Tickets cannot be used for free-tier contests")
+    if market.tier != ticket.tier.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This ticket is for {ticket.tier.value} tier (market is {market.tier})",
+        )
+
+    prob = market.yes_probability if req.side == BetSide.YES else market.no_probability
+
+    bet = Bet(
+        user_id=current_user.id,
+        market_id=market.id,
+        side=req.side,
+        amount=Decimal("0"),
+        probability_at_bet=prob,
+        potential_payout=Decimal("0"),
+    )
+    db.add(bet)
+    ticket.is_used = True
 
     await db.flush()
     await db.refresh(bet)

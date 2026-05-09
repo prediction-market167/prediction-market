@@ -8,7 +8,7 @@ import type { WithdrawResult } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
 import { useTonAddress, useTonConnectUI } from '@tonconnect/ui-react'
 import leaderboardApi from '@/api/leaderboard'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   User as UserIcon, Copy, Check, Ticket, CheckCircle, Gift, Users,
   LogOut, ArrowUpFromLine, AlertCircle,
@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const { t } = useTranslation()
   const token = useAppSelector((s) => s.auth.token)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const walletAddress = useTonAddress()
   const [tonConnectUI] = useTonConnectUI()
   const [copied, setCopied] = useState(false)
@@ -373,11 +374,20 @@ export default function ProfilePage() {
             </p>
             <div className="space-y-2 mb-5">
               {referral.tickets.map((ticket) => (
-                <div key={ticket.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${TIER_COLORS[ticket.tier] ?? ''}`}>
-                  <Gift className="w-4 h-4" />
-                  <span className="text-sm font-bold">
+                <div
+                  key={ticket.id}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${TIER_COLORS[ticket.tier] ?? ''}`}
+                >
+                  <Gift className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-bold flex-1">
                     {t('referral.ticketLabel', { tier: ticket.tier.toUpperCase() })}
                   </span>
+                  <button
+                    onClick={() => navigate('/markets')}
+                    className="text-xs font-semibold opacity-80 hover:opacity-100 transition-opacity whitespace-nowrap"
+                  >
+                    {t('referral.useInContest')}
+                  </button>
                 </div>
               ))}
             </div>
