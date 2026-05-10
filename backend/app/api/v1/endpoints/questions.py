@@ -296,24 +296,28 @@ async def generate_questions_endpoint(
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
-        logger.error("Question generation error: %s", exc)
-        raise HTTPException(500, "Generation failed. Please try again.")
+        logger.error("Question generation error: %s", exc, exc_info=True)
+        raise HTTPException(500, f"Generation failed: {exc}")
     if not questions:
         raise HTTPException(422, "No valid questions were generated. Please try again.")
 
     auto_save = [q for q in questions if q["tier"] != "hard"]
     hard_preview = [q for q in questions if q["tier"] == "hard"]
 
-    tier_counts: dict[str, int] = {}
-    for tier_val in QuestionTier:
-        res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
-        tier_counts[tier_val.value] = res.scalar_one() or 0
+    try:
+        tier_counts: dict[str, int] = {}
+        for tier_val in QuestionTier:
+            res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
+            tier_counts[tier_val.value] = res.scalar_one() or 0
 
-    created = _questions_to_db(auto_save, tier_counts, db)
-    await db.flush()
-    for q in created:
-        await db.refresh(q)
-    await db.commit()
+        created = _questions_to_db(auto_save, tier_counts, db)
+        await db.flush()
+        for q in created:
+            await db.refresh(q)
+        await db.commit()
+    except Exception as exc:
+        logger.error("Generate DB error: %s", exc, exc_info=True)
+        raise HTTPException(500, f"Database error: {exc}")
 
     return GenerateResponse(
         saved=len(created),

@@ -280,9 +280,9 @@ async def generate_questions(category: str, count: int) -> list[dict]:
 
     # Build tier targets string for the prompt
     per_tier = max(1, count // 4)
-    remainder = count - per_tier * 4
+    n_free   = max(1, count - per_tier * 3)
     tier_targets = (
-        f"{per_tier + remainder} free, {per_tier} easy, {per_tier} medium, {per_tier} hard"
+        f"{n_free} free, {per_tier} easy, {per_tier} medium, {per_tier} hard"
     )
 
     articles_text = "\n\n---\n\n".join(summaries)
