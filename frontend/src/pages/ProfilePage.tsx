@@ -11,11 +11,11 @@ import leaderboardApi from '@/api/leaderboard'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User as UserIcon, Copy, Check, Ticket, CheckCircle, Gift, Users,
-  LogOut, ArrowUpFromLine, AlertCircle,
+  LogOut, ArrowUpFromLine, AlertCircle, Clock,
 } from 'lucide-react'
 import GemIcon from '@/components/common/GemIcon'
 
-const MIN_WITHDRAW = 500
+const MIN_WITHDRAW = 1000
 
 const WEEKLY_BADGES: Record<number, { emoji: string; labelKey: string; color: string }> = {
   1: { emoji: '🥇', labelKey: 'leaderboard.badgeChampion', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
@@ -53,8 +53,9 @@ export default function ProfilePage() {
   const [tonConnectUI] = useTonConnectUI()
   const [copied, setCopied] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [manualWallet, setManualWallet] = useState('')
   const [withdrawResult, setWithdrawResult] = useState<WithdrawResult | null>(null)
-  const [withdrawError, setWithdrawError] = useState(false)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null)
 
   const { data: user } = useQuery({
     queryKey: ['me'],
@@ -89,16 +90,25 @@ export default function ProfilePage() {
     enabled: !!token,
   })
 
+  const { data: withdrawals = [] } = useQuery({
+    queryKey: ['my-withdrawals'],
+    queryFn: usersApi.getWithdrawals,
+    enabled: !!token,
+  })
+
   const withdrawMut = useMutation({
-    mutationFn: (stars: number) => usersApi.withdraw(stars),
+    mutationFn: ({ gems, wallet }: { gems: number; wallet: string }) =>
+      usersApi.withdraw(gems, wallet),
     onSuccess: (data) => {
       setWithdrawResult(data)
-      setWithdrawError(false)
+      setWithdrawError(null)
       setWithdrawAmount('')
       queryClient.invalidateQueries({ queryKey: ['me'] })
+      queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] })
     },
-    onError: () => {
-      setWithdrawError(true)
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail ?? null
+      setWithdrawError(msg)
     },
   })
 
@@ -120,11 +130,14 @@ export default function ProfilePage() {
   const parsedAmount = Number(withdrawAmount)
   const tonAmount = parsedAmount > 0 && rate > 0 ? (parsedAmount / rate).toFixed(4) : null
 
+  const effectiveWallet = manualWallet.trim() || walletAddress || ''
+
   const handleWithdraw = () => {
     if (!parsedAmount || parsedAmount <= 0) return
-    setWithdrawError(false)
+    if (!effectiveWallet) return
+    setWithdrawError(null)
     setWithdrawResult(null)
-    withdrawMut.mutate(parsedAmount)
+    withdrawMut.mutate({ gems: parsedAmount, wallet: effectiveWallet })
   }
 
   return (
@@ -175,20 +188,9 @@ export default function ProfilePage() {
           <h2 className="font-black text-ink-100 text-base">{t('wallet.title')}</h2>
         </div>
 
-        {!walletAddress ? (
-          <div className="text-center py-2">
-            <p className="text-sm text-ink-400 mb-4">{t('wallet.noWalletDesc')}</p>
-            <button
-              onClick={() => tonConnectUI.openModal()}
-              className="btn-secondary px-6 py-2.5 flex items-center gap-2 mx-auto text-sm"
-            >
-              <TonIcon className="w-4 h-4" />
-              {t('wallet.connect')}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Connected address row */}
+        <div className="space-y-4">
+          {/* Optional TonConnect display */}
+          {walletAddress ? (
             <div className="flex items-center justify-between bg-surface-700 border border-surface-600 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2">
                 <TonIcon className="w-3.5 h-3.5 text-brand-cyan" />
@@ -204,83 +206,145 @@ export default function ProfilePage() {
                 {t('wallet.disconnect')}
               </button>
             </div>
-
-            {/* Withdraw form */}
-            <div>
-              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
-                {t('wallet.amountLabel')}
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={userBalance}
-                value={withdrawAmount}
-                onChange={e => { setWithdrawAmount(e.target.value); setWithdrawResult(null); setWithdrawError(false) }}
-                className="input-dark w-full"
-                placeholder="0"
-              />
-            </div>
-
-            <div className="bg-surface-700 border border-surface-600 rounded-xl px-4 py-3 flex justify-between items-center">
-              <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
-                {t('wallet.youReceive')}
-              </span>
-              <span className="text-sm font-black text-gold">
-                {tonAmount ? `${tonAmount} TON` : '—'}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-ink-600">{t('wallet.rate', { rate })}</p>
-              <p className="text-xs text-ink-600">{t('wallet.minWithdrawal')}</p>
-            </div>
-
-            {withdrawResult?.status === 'pending' && (
-              <div className="rounded-xl p-4 bg-yes/10 border border-yes/30">
-                <p className="text-sm font-black text-yes">{t('wallet.pendingTitle')}</p>
-                <p className="text-xs text-ink-300 mt-1">
-                  {t('wallet.pendingDesc', {
-                    stars: withdrawResult.amount_stars,
-                    ton: Number(withdrawResult.amount_ton).toFixed(4),
-                  })}
-                </p>
-              </div>
-            )}
-
-            {withdrawError && (
-              <div className="rounded-xl p-4 bg-no/10 border border-no/30 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-no flex-shrink-0" />
-                <p className="text-sm text-no">{t('wallet.errorTitle')}</p>
-              </div>
-            )}
-
+          ) : (
             <button
-              onClick={handleWithdraw}
-              disabled={
-                !parsedAmount ||
-                parsedAmount <= 0 ||
-                parsedAmount < MIN_WITHDRAW ||
-                parsedAmount > userBalance ||
-                withdrawMut.isPending
-              }
-              className="w-full btn-primary py-3 text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2"
+              onClick={() => tonConnectUI.openModal()}
+              className="btn-secondary w-full py-2.5 flex items-center gap-2 justify-center text-sm"
             >
-              {withdrawMut.isPending ? (
-                <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('wallet.withdrawing')}</>
-              ) : (
-                <><ArrowUpFromLine className="w-4 h-4" /> {t('wallet.withdrawBtn', { stars: parsedAmount || 0 })}</>
-              )}
+              <TonIcon className="w-4 h-4" />
+              {t('wallet.connect')}
             </button>
+          )}
 
-            {parsedAmount > 0 && parsedAmount < MIN_WITHDRAW && (
-              <p className="text-xs text-no text-center">{t('wallet.minWithdrawalError')}</p>
-            )}
-            {parsedAmount > userBalance && (
-              <p className="text-xs text-no text-center">{t('wallet.insufficientBalance')}</p>
-            )}
+          {/* Wallet address input */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
+              {t('wallet.walletAddressLabel')}
+            </label>
+            <input
+              type="text"
+              value={manualWallet}
+              onChange={e => { setManualWallet(e.target.value); setWithdrawResult(null); setWithdrawError(null) }}
+              className="input-dark w-full font-mono text-sm"
+              placeholder={walletAddress || t('wallet.walletAddressPlaceholder')}
+            />
           </div>
-        )}
+
+          {/* Amount input */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">
+              {t('wallet.amountLabel')}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={userBalance}
+              value={withdrawAmount}
+              onChange={e => { setWithdrawAmount(e.target.value); setWithdrawResult(null); setWithdrawError(null) }}
+              className="input-dark w-full"
+              placeholder="0"
+            />
+          </div>
+
+          <div className="bg-surface-700 border border-surface-600 rounded-xl px-4 py-3 flex justify-between items-center">
+            <span className="text-xs text-ink-600 font-semibold uppercase tracking-wide">
+              {t('wallet.youReceive')}
+            </span>
+            <span className="text-sm font-black text-gold">
+              {tonAmount ? `${tonAmount} TON` : '—'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-ink-600">{t('wallet.rate', { rate })}</p>
+            <p className="text-xs text-ink-600">{t('wallet.minWithdrawal')}</p>
+          </div>
+
+          {withdrawResult?.status === 'pending' && (
+            <div className="rounded-xl p-4 bg-yes/10 border border-yes/30">
+              <p className="text-sm font-black text-yes">{t('wallet.pendingTitle')}</p>
+              <p className="text-xs text-ink-300 mt-1">
+                {t('wallet.pendingDesc', {
+                  gems: withdrawResult.amount_gems,
+                  ton: Number(withdrawResult.amount_ton).toFixed(4),
+                })}
+              </p>
+            </div>
+          )}
+
+          {withdrawError && (
+            <div className="rounded-xl p-4 bg-no/10 border border-no/30 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-no flex-shrink-0" />
+              <p className="text-sm text-no">{withdrawError || t('wallet.errorTitle')}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleWithdraw}
+            disabled={
+              !parsedAmount ||
+              parsedAmount <= 0 ||
+              parsedAmount < MIN_WITHDRAW ||
+              parsedAmount > userBalance ||
+              !effectiveWallet ||
+              withdrawMut.isPending
+            }
+            className="w-full btn-primary py-3 text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {withdrawMut.isPending ? (
+              <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('wallet.withdrawing')}</>
+            ) : (
+              <><ArrowUpFromLine className="w-4 h-4" /> {t('wallet.withdrawBtn', { gems: parsedAmount || 0 })}</>
+            )}
+          </button>
+
+          {parsedAmount > 0 && parsedAmount < MIN_WITHDRAW && (
+            <p className="text-xs text-no text-center">{t('wallet.minWithdrawalError')}</p>
+          )}
+          {parsedAmount > userBalance && (
+            <p className="text-xs text-no text-center">{t('wallet.insufficientBalance')}</p>
+          )}
+          {!effectiveWallet && parsedAmount >= MIN_WITHDRAW && (
+            <p className="text-xs text-no text-center">{t('wallet.walletRequired')}</p>
+          )}
+        </div>
       </div>
+
+      {/* Withdrawal History */}
+      {withdrawals.length > 0 && (
+        <div className="card mb-5">
+          <h2 className="font-black text-ink-100 text-base mb-4">{t('wallet.historyTitle')}</h2>
+          <div className="space-y-3">
+            {withdrawals.map((w) => (
+              <div key={w.id} className="flex items-center justify-between bg-surface-700 border border-surface-600 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-ink-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-ink-200">
+                      {w.amount_gems.toLocaleString()} 💎 → {Number(w.amount_ton).toFixed(4)} TON
+                    </p>
+                    <p className="text-xs text-ink-500 font-mono truncate max-w-[160px]">
+                      {w.wallet_address.slice(0, 8)}…{w.wallet_address.slice(-6)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-xs font-semibold ${
+                    w.status === 'completed' ? 'text-yes' :
+                    w.status === 'failed' ? 'text-no' : 'text-yellow-400'
+                  }`}>
+                    {w.status === 'completed' ? t('wallet.statusCompleted') :
+                     w.status === 'failed' ? t('wallet.statusFailed') : t('wallet.statusPending')}
+                  </p>
+                  <p className="text-xs text-ink-600">
+                    {new Date(w.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Referral card */}
       <div className="card mb-5">

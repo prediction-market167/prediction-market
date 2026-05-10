@@ -176,6 +176,46 @@ async def send_refund_notification(telegram_id: int, amount: int, market_id: int
         logger.warning("Refund notification failed telegram_id=%s: %s", telegram_id, exc)
 
 
+async def send_withdrawal_approved_notification(
+    telegram_id: int, ton_amount: float, tx_hash: str
+) -> None:
+    ton_str = f"{ton_amount:.4f}".rstrip("0").rstrip(".")
+    text = (
+        f"✅ *Withdrawal Approved*\n\n"
+        f"Your withdrawal of *{ton_str} TON* has been sent to your wallet\\.\n\n"
+        f"`{tx_hash[:16]}…`"
+    )
+    try:
+        await get_application().bot.send_message(
+            chat_id=telegram_id,
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        )
+    except Exception as exc:
+        logger.warning("Withdrawal approval notification failed telegram_id=%s: %s", telegram_id, exc)
+
+
+async def send_withdrawal_rejected_notification(
+    telegram_id: int, gems_amount: float
+) -> None:
+    gems_str = int(gems_amount)
+    text = (
+        f"❌ *Withdrawal Rejected*\n\n"
+        f"Your withdrawal request was rejected\\. "
+        f"*{gems_str} 💎 Gems* have been refunded to your balance\\."
+    )
+    try:
+        await get_application().bot.send_message(
+            chat_id=telegram_id,
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        )
+    except Exception as exc:
+        logger.warning("Withdrawal rejection notification failed telegram_id=%s: %s", telegram_id, exc)
+
+
 async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.pre_checkout_query.answer(ok=True)
 

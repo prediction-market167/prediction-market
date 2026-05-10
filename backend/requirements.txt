@@ -42,5 +42,8 @@ openpyxl>=3.1.2
 # AI / LLM
 anthropic>=0.40.0
 
+# TON blockchain
+tonsdk>=0.0.5
+
 # Dev Tools
 python-dotenv==1.0.1

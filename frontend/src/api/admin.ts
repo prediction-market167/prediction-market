@@ -66,6 +66,20 @@ export interface FinancialData {
   master_wallet_configured: boolean
 }
 
+export interface AdminWithdrawal {
+  id: number
+  user_id: number
+  username: string
+  telegram_id: number | null
+  amount_gems: number
+  amount_ton: number
+  wallet_address: string
+  status: 'pending' | 'completed' | 'failed'
+  tx_hash: string | null
+  note: string | null
+  created_at: string
+}
+
 const adminApi = {
   listMarkets: (status?: MarketStatus) =>
     apiClient.get<Market[]>('/admin/markets', { params: status ? { status } : {} }).then(r => r.data),
@@ -117,6 +131,17 @@ const adminApi = {
 
   getFinancials: () =>
     apiClient.get<FinancialData>('/admin/financials').then(r => r.data),
+
+  listWithdrawals: (status?: string) =>
+    apiClient
+      .get<AdminWithdrawal[]>('/admin/withdrawals', { params: status ? { status } : {} })
+      .then(r => r.data),
+
+  approveWithdrawal: (id: number, note?: string) =>
+    apiClient.post<{ status: string; tx_hash: string }>(`/admin/withdrawals/${id}/approve`, { note }).then(r => r.data),
+
+  rejectWithdrawal: (id: number, note?: string) =>
+    apiClient.post<{ status: string }>(`/admin/withdrawals/${id}/reject`, { note }).then(r => r.data),
 }
 
 export default adminApi

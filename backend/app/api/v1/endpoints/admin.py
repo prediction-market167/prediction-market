@@ -19,6 +19,7 @@ from app.models.star_payment import StarPayment, StarPaymentStatus
 from app.models.transaction import Transaction, TransactionType
 from app.models.jackpot import SystemFunds
 from app.models.jackpot_history import JackpotHistory
+from app.models.withdrawal import Withdrawal
 from app.schemas.market import MarketCreate, MarketUpdate, MarketResponse, MarketResolve
 from app.schemas.user import UserResponse, UserAdminUpdate
 
@@ -552,3 +553,138 @@ async def get_financials(
         admin_profit_balance=funds.admin_profit_balance if funds else zero,
         master_wallet_configured=bool(settings.MASTER_ADMIN_WALLET),
     )
+
+
+# ──────────────────────────────────────────────
+# Withdrawal management
+# ──────────────────────────────────────────────
+
+@router.get("/withdrawals")
+async def list_withdrawals(
+    status: str | None = Query(None, description="Filter by status: pending/completed/failed"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    stmt = select(Withdrawal, User).join(User, User.id == Withdrawal.user_id)
+    if status:
+        stmt = stmt.where(Withdrawal.status == status)
+    stmt = stmt.order_by(Withdrawal.created_at.desc()).limit(200)
+    result = await db.execute(stmt)
+    rows = result.all()
+    return [
+        {
+            "id": w.id,
+            "user_id": w.user_id,
+            "username": u.username,
+            "telegram_id": u.telegram_id,
+            "amount_gems": float(w.amount_stars),
+            "amount_ton": float(w.amount_ton),
+            "wallet_address": w.wallet_address,
+            "status": w.status,
+            "tx_hash": w.tx_hash,
+            "note": w.note,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+        }
+        for w, u in rows
+    ]
+
+
+class WithdrawalActionBody(BaseModel):
+    note: str | None = None
+
+
+@router.post("/withdrawals/{withdrawal_id}/approve")
+async def approve_withdrawal(
+    withdrawal_id: int,
+    body: WithdrawalActionBody = WithdrawalActionBody(),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    from app.core.ton_transfer import send_ton
+
+    w_res = await db.execute(select(Withdrawal).where(Withdrawal.id == withdrawal_id))
+    w = w_res.scalar_one_or_none()
+    if not w:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    if w.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Withdrawal is already {w.status}")
+
+    try:
+        tx_hash = await send_ton(w.wallet_address, w.amount_ton)
+    except Exception as exc:
+        logger.error("TON transfer failed for withdrawal %s: %s", withdrawal_id, exc)
+        raise HTTPException(status_code=502, detail=f"TON transfer failed: {exc}")
+
+    w.status = "completed"
+    w.tx_hash = tx_hash
+    if body.note:
+        w.note = body.note
+    await db.flush()
+
+    # Notify user via Telegram
+    user_res = await db.execute(select(User).where(User.id == w.user_id))
+    user = user_res.scalar_one_or_none()
+    if user and user.telegram_id:
+        try:
+            from app.bot.application import send_withdrawal_approved_notification
+            await send_withdrawal_approved_notification(
+                telegram_id=user.telegram_id,
+                ton_amount=float(w.amount_ton),
+                tx_hash=tx_hash,
+            )
+        except Exception as exc:
+            logger.warning("Failed to notify user %s about withdrawal approval: %s", user.telegram_id, exc)
+
+    return {"status": "completed", "tx_hash": tx_hash}
+
+
+@router.post("/withdrawals/{withdrawal_id}/reject")
+async def reject_withdrawal(
+    withdrawal_id: int,
+    body: WithdrawalActionBody = WithdrawalActionBody(),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    w_res = await db.execute(select(Withdrawal).where(Withdrawal.id == withdrawal_id))
+    w = w_res.scalar_one_or_none()
+    if not w:
+        raise HTTPException(status_code=404, detail="Withdrawal not found")
+    if w.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Withdrawal is already {w.status}")
+
+    # Refund gems to user
+    user_res = await db.execute(select(User).where(User.id == w.user_id))
+    user = user_res.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    balance_before = user.balance
+    user.balance += w.amount_stars
+
+    refund_tx = Transaction(
+        user_id=user.id,
+        type=TransactionType.WITHDRAWAL,
+        amount=w.amount_stars,
+        balance_before=balance_before,
+        balance_after=user.balance,
+        description=f"Withdrawal #{w.id} rejected — Gems refunded",
+    )
+    db.add(refund_tx)
+
+    w.status = "failed"
+    if body.note:
+        w.note = body.note
+    await db.flush()
+
+    # Notify user via Telegram
+    if user.telegram_id:
+        try:
+            from app.bot.application import send_withdrawal_rejected_notification
+            await send_withdrawal_rejected_notification(
+                telegram_id=user.telegram_id,
+                gems_amount=float(w.amount_stars),
+            )
+        except Exception as exc:
+            logger.warning("Failed to notify user %s about withdrawal rejection: %s", user.telegram_id, exc)
+
+    return {"status": "failed"}

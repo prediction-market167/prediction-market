@@ -20,4 +20,5 @@ class Withdrawal(Base, TimestampMixin):
     amount_ton: Mapped[Decimal] = mapped_column(Numeric(18, 9), nullable=False)
     wallet_address: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    tx_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)

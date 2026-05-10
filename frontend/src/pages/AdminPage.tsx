@@ -5,16 +5,16 @@ import { format } from 'date-fns'
 import {
   Plus, CheckCircle, XCircle, Clock, Ban, Users, BarChart2, Trophy,
   Upload, RefreshCw, Play, Trash2, Download, FileSpreadsheet,
-  Zap, Bell, AlertTriangle, Send, Settings, ShieldOff, DollarSign,
+  Zap, Bell, AlertTriangle, Send, Settings, ShieldOff, DollarSign, ArrowDownToLine,
 } from 'lucide-react'
-import adminApi, { MarketCreatePayload, JackpotCriteria } from '@/api/admin'
+import adminApi, { MarketCreatePayload, JackpotCriteria, type AdminWithdrawal } from '@/api/admin'
 import GemIcon from '@/components/common/GemIcon'
 import questionsApi, { type GeneratedQuestionItem } from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier, QuestionStatus } from '@/types'
 import { Sparkles, X as XIcon } from 'lucide-react'
 
-type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials'
+type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials' | 'withdrawals'
 
 const MIN_PARTICIPANTS = 20
 
@@ -1338,6 +1338,143 @@ function FinancialsTab() {
   )
 }
 
+// ─── Withdrawals Tab ──────────────────────────────────────────────────────────
+
+function WithdrawalsTab() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [filter, setFilter] = useState<'pending' | 'all'>('pending')
+  const [actionNote] = useState<Record<number, string>>({})
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['admin', 'withdrawals', filter],
+    queryFn: () => adminApi.listWithdrawals(filter === 'pending' ? 'pending' : undefined),
+    refetchInterval: 10_000,
+  })
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'withdrawals'] })
+  }
+
+  const approveMut = useMutation({
+    mutationFn: ({ id, note }: { id: number; note?: string }) =>
+      adminApi.approveWithdrawal(id, note),
+    onSuccess: (res) => {
+      alert(t('admin.withdrawals.approveSuccess', { hash: res.tx_hash.slice(0, 16) }))
+      invalidate()
+    },
+  })
+
+  const rejectMut = useMutation({
+    mutationFn: ({ id, note }: { id: number; note?: string }) =>
+      adminApi.rejectWithdrawal(id, note),
+    onSuccess: () => {
+      alert(t('admin.withdrawals.rejectSuccess'))
+      invalidate()
+    },
+  })
+
+  const statusLabel = (s: AdminWithdrawal['status']) => {
+    if (s === 'pending') return t('admin.withdrawals.statusPending')
+    if (s === 'completed') return t('admin.withdrawals.statusCompleted')
+    return t('admin.withdrawals.statusFailed')
+  }
+
+  const statusColor = (s: AdminWithdrawal['status']) => {
+    if (s === 'pending') return 'text-yellow-400'
+    if (s === 'completed') return 'text-yes'
+    return 'text-no'
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-black text-ink-100">{t('admin.withdrawals.title')}</p>
+        <div className="flex gap-2">
+          {(['pending', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                filter === f ? 'bg-surface-600 text-ink-100' : 'text-ink-500 hover:text-ink-300'
+              }`}
+            >
+              {f === 'pending' ? t('admin.withdrawals.filterPending') : t('admin.withdrawals.filterAll')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-ink-500 text-sm">{t('admin.markets.loading')}</p>
+      ) : data.length === 0 ? (
+        <p className="text-ink-500 text-sm">{t('admin.withdrawals.empty')}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-ink-500 border-b border-surface-600">
+                <th className="pb-2 pr-4">{t('admin.withdrawals.colUser')}</th>
+                <th className="pb-2 pr-4">{t('admin.withdrawals.colGems')}</th>
+                <th className="pb-2 pr-4">{t('admin.withdrawals.colTon')}</th>
+                <th className="pb-2 pr-4 max-w-[120px]">{t('admin.withdrawals.colWallet')}</th>
+                <th className="pb-2 pr-4">{t('admin.withdrawals.colDate')}</th>
+                <th className="pb-2 pr-4">{t('admin.withdrawals.colStatus')}</th>
+                <th className="pb-2">{t('admin.withdrawals.colActions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-600">
+              {data.map((w) => (
+                <tr key={w.id} className="py-2">
+                  <td className="py-3 pr-4 text-ink-100 font-medium">@{w.username}</td>
+                  <td className="py-3 pr-4 text-ink-300">{w.amount_gems.toLocaleString()} 💎</td>
+                  <td className="py-3 pr-4 text-ink-300">{w.amount_ton.toFixed(4)} TON</td>
+                  <td className="py-3 pr-4 max-w-[120px]">
+                    <span className="text-ink-500 font-mono text-xs truncate block" title={w.wallet_address}>
+                      {w.wallet_address.slice(0, 8)}…{w.wallet_address.slice(-6)}
+                    </span>
+                    {w.tx_hash && (
+                      <span className="text-brand-cyan text-xs font-mono">
+                        {t('admin.withdrawals.txHash', { hash: w.tx_hash.slice(0, 10) })}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 text-ink-500 text-xs whitespace-nowrap">
+                    {new Date(w.created_at).toLocaleDateString()}
+                  </td>
+                  <td className={`py-3 pr-4 text-xs font-semibold ${statusColor(w.status)}`}>
+                    {statusLabel(w.status)}
+                  </td>
+                  <td className="py-3">
+                    {w.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => approveMut.mutate({ id: w.id, note: actionNote[w.id] })}
+                          disabled={approveMut.isPending}
+                          className="px-3 py-1.5 rounded-lg bg-yes/20 text-yes text-xs font-semibold hover:bg-yes/30 disabled:opacity-50 transition-all"
+                        >
+                          {approveMut.isPending ? t('admin.withdrawals.approving') : t('admin.withdrawals.approveBtn')}
+                        </button>
+                        <button
+                          onClick={() => rejectMut.mutate({ id: w.id, note: actionNote[w.id] })}
+                          disabled={rejectMut.isPending}
+                          className="px-3 py-1.5 rounded-lg bg-no/20 text-no text-xs font-semibold hover:bg-no/30 disabled:opacity-50 transition-all"
+                        >
+                          {rejectMut.isPending ? t('admin.withdrawals.rejecting') : t('admin.withdrawals.rejectBtn')}
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -1358,6 +1495,7 @@ export default function AdminPage() {
             { key: 'settings', icon: Settings, label: t('admin.tabs.settings') },
             { key: 'blocked', icon: ShieldOff, label: t('admin.tabs.blocked') },
             { key: 'financials', icon: DollarSign, label: t('admin.tabs.financials') },
+            { key: 'withdrawals', icon: ArrowDownToLine, label: t('admin.tabs.withdrawals') },
           ] as const).map(({ key, icon: Icon, label }) => (
             <button
               key={key}
@@ -1380,6 +1518,7 @@ export default function AdminPage() {
         {tab === 'settings' && <SettingsTab />}
         {tab === 'blocked' && <BlockedUsersTab />}
         {tab === 'financials' && <FinancialsTab />}
+        {tab === 'withdrawals' && <WithdrawalsTab />}
       </div>
     </div>
   )

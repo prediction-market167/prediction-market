@@ -13,10 +13,21 @@ export interface PlatformSettings {
 
 export interface WithdrawResult {
   withdrawal_id: number
-  amount_stars: number
+  amount_gems: number
   amount_ton: number
   wallet_address: string
   status: string
+}
+
+export interface WithdrawalRecord {
+  id: number
+  amount_gems: number
+  amount_ton: number
+  wallet_address: string
+  status: 'pending' | 'completed' | 'failed'
+  tx_hash: string | null
+  note: string | null
+  created_at: string
 }
 
 export const usersApi = {
@@ -29,6 +40,11 @@ export const usersApi = {
   platformSettings: () =>
     apiClient.get<PlatformSettings>('/users/me/platform-settings').then((r) => r.data),
 
-  withdraw: (amount_stars: number) =>
-    apiClient.post<WithdrawResult>('/users/me/withdraw', { amount_stars }).then((r) => r.data),
+  withdraw: (amount_gems: number, wallet_address: string) =>
+    apiClient
+      .post<WithdrawResult>('/users/me/withdraw', { amount_gems, wallet_address })
+      .then((r) => r.data),
+
+  getWithdrawals: () =>
+    apiClient.get<WithdrawalRecord[]>('/users/me/withdrawals').then((r) => r.data),
 }
