@@ -27,7 +27,10 @@ class Question(Base, TimestampMixin):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    tier: Mapped[QuestionTier] = mapped_column(Enum(QuestionTier, name="questiontier"), nullable=False, index=True)
+    tier: Mapped[QuestionTier] = mapped_column(
+        Enum(QuestionTier, name="questiontier", native_enum=False, create_constraint=False),
+        nullable=False, index=True,
+    )
     order_idx: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     question_mn: Mapped[str] = mapped_column(Text, nullable=False)
@@ -43,13 +46,13 @@ class Question(Base, TimestampMixin):
     correct_option_idx: Mapped[int] = mapped_column(Integer, nullable=False)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[QuestionStatus] = mapped_column(
-        Enum(QuestionStatus, name="questionstatus"),
+        Enum(QuestionStatus, name="questionstatus", native_enum=False, create_constraint=False),
         default=QuestionStatus.UNUSED,
         nullable=False,
         server_default="unused",
     )
     translation_status: Mapped[TranslationStatus] = mapped_column(
-        Enum(TranslationStatus, name="translationstatus"),
+        Enum(TranslationStatus, name="translationstatus", native_enum=False, create_constraint=False),
         default=TranslationStatus.PENDING,
         nullable=False,
     )
