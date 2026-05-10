@@ -172,7 +172,7 @@ async def upload_questions(
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
         count_res = await db.execute(
-            select(func.count(Question.id)).where(Question.tier == tier_val)
+            select(func.count(Question.id)).where(Question.tier == tier_val.value)
         )
         tier_counts[tier_val.value] = count_res.scalar_one() or 0
 
@@ -307,7 +307,7 @@ async def generate_questions_endpoint(
     try:
         tier_counts: dict[str, int] = {}
         for tier_val in QuestionTier:
-            res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
+            res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val.value))
             tier_counts[tier_val.value] = res.scalar_one() or 0
 
         created = _questions_to_db(auto_save, tier_counts, db)
@@ -353,7 +353,7 @@ async def save_generated_questions(
     """Persist a batch of generated (and admin-reviewed) questions."""
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
-        count_res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
+        count_res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val.value))
         tier_counts[tier_val.value] = count_res.scalar_one() or 0
 
     created = []

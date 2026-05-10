@@ -337,7 +337,7 @@ async def generate_questions_scheduled(target_per_tier: int = 10) -> dict:
             tier_counts: dict[str, int] = {}
             for tier_val in QuestionTier:
                 res = await db.execute(
-                    select(sqlfunc.count(Question.id)).where(Question.tier == tier_val)
+                    select(sqlfunc.count(Question.id)).where(Question.tier == tier_val.value)
                 )
                 tier_counts[tier_val.value] = res.scalar_one() or 0
 
