@@ -33,10 +33,10 @@ async def _tier_counts(db: AsyncSession) -> dict[str, int]:
 router = APIRouter()
 
 TIER_OPTION_COUNT = {
-    QuestionTier.FREE: 2,
-    QuestionTier.EASY: 2,
-    QuestionTier.MEDIUM: 2,
-    QuestionTier.HARD: 4,
+    QuestionTier.free: 2,
+    QuestionTier.easy: 2,
+    QuestionTier.medium: 2,
+    QuestionTier.hard: 4,
 }
 
 OPTION_LETTERS = ['a', 'b', 'c', 'd']
@@ -123,9 +123,9 @@ async def question_counts(
     )
     counts = {r[0]: r[1] for r in rows}
     return QuestionCountsResponse(
-        unused=counts.get(QuestionStatus.UNUSED, 0),
-        scheduled_unused=counts.get(QuestionStatus.SCHEDULED_UNUSED, 0),
-        used=counts.get(QuestionStatus.USED, 0),
+        unused=counts.get(QuestionStatus.unused, 0),
+        scheduled_unused=counts.get(QuestionStatus.scheduled_unused, 0),
+        used=counts.get(QuestionStatus.used, 0),
     )
 
 
@@ -201,8 +201,8 @@ async def upload_questions(
             options_hi=row["options_hi"],
             correct_option_idx=row["correct_option_idx"],
             is_used=False,
-            status=QuestionStatus.UNUSED,
-            translation_status=TranslationStatus.DONE,
+            status=QuestionStatus.unused,
+            translation_status=TranslationStatus.done,
         )
         db.add(q)
         created.append(q)
@@ -246,9 +246,9 @@ async def reset_question_status(
     q = result.scalar_one_or_none()
     if not q:
         raise HTTPException(404, "Question not found")
-    if q.status != QuestionStatus.SCHEDULED_UNUSED:
+    if q.status != QuestionStatus.scheduled_unused:
         raise HTTPException(400, f"Only scheduled_unused questions can be reset (current: {q.status.value})")
-    q.status = QuestionStatus.UNUSED
+    q.status = QuestionStatus.unused
     q.is_used = False
     await db.commit()
     return QuestionResponse.model_validate(q)
@@ -277,8 +277,8 @@ def _questions_to_db(parsed: list[dict], tier_counts: dict[str, int], db) -> lis
             options_hi=q_data["options_hi"],
             correct_option_idx=q_data["correct_option_idx"],
             is_used=False,
-            status=QuestionStatus.UNUSED,
-            translation_status=TranslationStatus.DONE,
+            status=QuestionStatus.unused,
+            translation_status=TranslationStatus.done,
         )
         db.add(q)
         created.append(q)
@@ -377,8 +377,8 @@ async def save_generated_questions(
             options_hi=item.options_hi,
             correct_option_idx=item.correct_option_idx,
             is_used=False,
-            status=QuestionStatus.UNUSED,
-            translation_status=TranslationStatus.DONE,
+            status=QuestionStatus.unused,
+            translation_status=TranslationStatus.done,
         )
         db.add(q)
         created.append(q)
@@ -400,7 +400,7 @@ async def delete_question(
     q = result.scalar_one_or_none()
     if not q:
         raise HTTPException(404, "Question not found")
-    if q.status == QuestionStatus.USED:
+    if q.status == QuestionStatus.used:
         raise HTTPException(400, "Cannot delete a question that has already been used")
     await db.delete(q)
     await db.commit()

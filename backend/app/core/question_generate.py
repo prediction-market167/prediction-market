@@ -362,8 +362,8 @@ async def generate_questions_scheduled(target_per_tier: int = 10) -> dict:
                     options_hi=q_data["options_hi"],
                     correct_option_idx=q_data["correct_option_idx"],
                     is_used=False,
-                    status=QuestionStatus.UNUSED,
-                    translation_status=TranslationStatus.DONE,
+                    status=QuestionStatus.unused,
+                    translation_status=TranslationStatus.done,
                 )
                 db.add(q)
                 saved += 1

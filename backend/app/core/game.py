@@ -47,7 +47,7 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
 
     # Prefer recycled (scheduled_unused) questions first, then fresh unused ones
     question = None
-    for status in (QuestionStatus.SCHEDULED_UNUSED, QuestionStatus.UNUSED):
+    for status in (QuestionStatus.scheduled_unused, QuestionStatus.unused):
         res = await db.execute(
             select(Question)
             .where(Question.tier == tier, Question.status == status)
@@ -90,7 +90,7 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
     db.add(market)
     from app.models.question import QuestionStatus
     question.is_used = True  # kept for backward compatibility
-    question.status = QuestionStatus.SCHEDULED_UNUSED
+    question.status = QuestionStatus.scheduled_unused
     await db.flush()
     await db.refresh(market)
     logger.info("Activated question %s as market %s (tier=%s)", question.id, market.id, tier.value)
@@ -190,11 +190,11 @@ async def _cancel_market(market, db: AsyncSession) -> None:
         if cancelled_question:
             if len(bets) == 0:
                 # No one saw/answered — safe to recycle
-                cancelled_question.status = QuestionStatus.SCHEDULED_UNUSED
+                cancelled_question.status = QuestionStatus.scheduled_unused
                 cancelled_question.is_used = False
             else:
                 # At least one paid participant saw it — mark as used
-                cancelled_question.status = QuestionStatus.USED
+                cancelled_question.status = QuestionStatus.used
                 cancelled_question.is_used = True
 
     # Notify participants of refund (fire-and-forget)
@@ -299,7 +299,7 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
         q_res = await db.execute(select(Question).where(Question.id == market.question_id))
         settled_question = q_res.scalar_one_or_none()
         if settled_question:
-            settled_question.status = QuestionStatus.USED
+            settled_question.status = QuestionStatus.used
             settled_question.is_used = True
 
     logger.info(

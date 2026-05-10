@@ -5,22 +5,22 @@ from app.db.base import Base, TimestampMixin
 
 
 class QuestionTier(str, enum.Enum):
-    FREE = "free"
-    EASY = "easy"
-    MEDIUM = "medium"
-    HARD = "hard"
+    free = "free"
+    easy = "easy"
+    medium = "medium"
+    hard = "hard"
 
 
 class QuestionStatus(str, enum.Enum):
-    UNUSED = "unused"                     # never been scheduled
-    SCHEDULED_UNUSED = "scheduled_unused" # scheduled but 0 participants — can reuse
-    USED = "used"                         # shown to ≥1 paid participant — never reuse
+    unused = "unused"
+    scheduled_unused = "scheduled_unused"
+    used = "used"
 
 
 class TranslationStatus(str, enum.Enum):
-    PENDING = "pending"
-    DONE = "done"
-    FAILED = "failed"
+    pending = "pending"
+    done = "done"
+    failed = "failed"
 
 
 class Question(Base, TimestampMixin):
@@ -47,12 +47,12 @@ class Question(Base, TimestampMixin):
     is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[QuestionStatus] = mapped_column(
         Enum(QuestionStatus, name="questionstatus", native_enum=False, create_constraint=False),
-        default=QuestionStatus.UNUSED,
+        default=QuestionStatus.unused,
         nullable=False,
         server_default="unused",
     )
     translation_status: Mapped[TranslationStatus] = mapped_column(
         Enum(TranslationStatus, name="translationstatus", native_enum=False, create_constraint=False),
-        default=TranslationStatus.PENDING,
+        default=TranslationStatus.pending,
         nullable=False,
     )
