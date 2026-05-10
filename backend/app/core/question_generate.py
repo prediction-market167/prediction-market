@@ -53,7 +53,7 @@ _WIKI_HEADERS = {
     "Accept": "application/json",
 }
 
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 
 # ── Fixed True/False values ───────────────────────────────────────────────────
 
