@@ -6,7 +6,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, String
 
 from app.db.session import get_db
 from app.api.v1.deps import get_current_superuser
@@ -18,6 +18,17 @@ from app.schemas.question import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _tier_counts(db: AsyncSession) -> dict[str, int]:
+    """Return {tier_value_str: count} using a single grouped query, avoiding enum binding."""
+    rows = await db.execute(
+        select(cast(Question.tier, String), func.count(Question.id)).group_by(Question.tier)
+    )
+    counts = {row[0]: row[1] for row in rows}
+    for t in QuestionTier:
+        counts.setdefault(t.value, 0)
+    return counts
 
 router = APIRouter()
 
@@ -169,12 +180,7 @@ async def upload_questions(
     if errors:
         raise HTTPException(422, detail={"errors": errors})
 
-    tier_counts: dict[str, int] = {}
-    for tier_val in QuestionTier:
-        count_res = await db.execute(
-            select(func.count(Question.id)).where(Question.tier == tier_val.value)
-        )
-        tier_counts[tier_val.value] = count_res.scalar_one() or 0
+    tier_counts = await _tier_counts(db)
 
     created = []
     for row in parsed:
@@ -305,11 +311,7 @@ async def generate_questions_endpoint(
     hard_preview = [q for q in questions if q["tier"] == "hard"]
 
     try:
-        tier_counts: dict[str, int] = {}
-        for tier_val in QuestionTier:
-            res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val.value))
-            tier_counts[tier_val.value] = res.scalar_one() or 0
-
+        tier_counts = await _tier_counts(db)
         created = _questions_to_db(auto_save, tier_counts, db)
         await db.flush()
         for q in created:
@@ -351,10 +353,7 @@ async def save_generated_questions(
     _: User = Depends(get_current_superuser),
 ):
     """Persist a batch of generated (and admin-reviewed) questions."""
-    tier_counts: dict[str, int] = {}
-    for tier_val in QuestionTier:
-        count_res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val.value))
-        tier_counts[tier_val.value] = count_res.scalar_one() or 0
+    tier_counts = await _tier_counts(db)
 
     created = []
     for item in req.questions:

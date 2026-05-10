@@ -326,20 +326,20 @@ async def generate_questions_scheduled(target_per_tier: int = 10) -> dict:
     if not questions:
         return {"saved": 0, "error": "No questions generated"}
 
-    from sqlalchemy import select, func as sqlfunc
+    from sqlalchemy import select, func as sqlfunc, cast, String
     from app.db.session import AsyncSessionLocal
     from app.models.question import Question, QuestionTier, QuestionStatus, TranslationStatus
 
     saved = 0
     try:
         async with AsyncSessionLocal() as db:
-            # Fetch current count per tier to assign order_idx
-            tier_counts: dict[str, int] = {}
-            for tier_val in QuestionTier:
-                res = await db.execute(
-                    select(sqlfunc.count(Question.id)).where(Question.tier == tier_val.value)
-                )
-                tier_counts[tier_val.value] = res.scalar_one() or 0
+            # Single grouped query — avoids enum-name binding bug with asyncpg
+            rows = await db.execute(
+                select(cast(Question.tier, String), sqlfunc.count(Question.id)).group_by(Question.tier)
+            )
+            tier_counts: dict[str, int] = {row[0]: row[1] for row in rows}
+            for t in QuestionTier:
+                tier_counts.setdefault(t.value, 0)
 
             for q_data in questions:
                 try:
