@@ -44,8 +44,14 @@ CATEGORY_SEARCH_TERMS: dict[str, list[str]] = {
     "Animals":       ["mammal species", "bird species", "reptile", "insect", "endangered species", "predator", "migration"],
 }
 
-WIKIPEDIA_REST = "https://en.wikipedia.org/api/rest_v1/page/summary"
-WIKIPEDIA_API  = "https://en.wikipedia.org/w/api.php"
+WIKIPEDIA_RANDOM  = "https://en.wikipedia.org/api/rest_v1/page/random/summary"
+WIKIPEDIA_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary"
+WIKIPEDIA_API     = "https://en.wikipedia.org/w/api.php"
+
+_WIKI_HEADERS = {
+    "User-Agent": "PredictionMarketBot/1.0 (https://github.com/prediction-market167/prediction-market; telegrambotmon@gmail.com) httpx/0.27",
+    "Accept": "application/json",
+}
 
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
@@ -110,23 +116,29 @@ Return ONLY valid JSON — no markdown, no code fences, no explanation:
 
 async def _fetch_random_summaries(client: httpx.AsyncClient, num: int) -> list[str]:
     summaries: list[str] = []
-    for _ in range(num):
+    for i in range(num):
         try:
-            r = await client.get(f"{WIKIPEDIA_REST}/Special:Random", follow_redirects=True)
+            r = await client.get(WIKIPEDIA_RANDOM, follow_redirects=True)
+            logger.debug("Wikipedia random[%d] status=%s", i, r.status_code)
             if r.status_code == 200:
                 data = r.json()
                 extract = data.get("extract", "")
                 title   = data.get("title", "")
                 if extract and len(extract) > 150:
                     summaries.append(f"**{title}**\n{extract[:1800]}")
+                else:
+                    logger.debug("Wikipedia random[%d] skipped: short extract (%d chars)", i, len(extract))
+            else:
+                logger.error("Wikipedia random[%d] error: HTTP %s — %s", i, r.status_code, r.text[:200])
         except Exception as exc:
-            logger.warning("Wikipedia random fetch error: %s", exc)
+            logger.error("Wikipedia random[%d] exception: %s", i, exc, exc_info=True)
     return summaries
 
 
 async def _fetch_category_summaries(client: httpx.AsyncClient, category: str, num: int) -> list[str]:
     terms = CATEGORY_SEARCH_TERMS.get(category, ["knowledge"])
     term  = random.choice(terms)
+    logger.info("Wikipedia category=%r search term=%r", category, term)
     summaries: list[str] = []
     try:
         r = await client.get(WIKIPEDIA_API, params={
@@ -134,33 +146,49 @@ async def _fetch_category_summaries(client: httpx.AsyncClient, category: str, nu
             "srsearch": term, "srlimit": num * 4,
             "format": "json", "srnamespace": 0,
         })
+        logger.debug("Wikipedia search status=%s", r.status_code)
         if r.status_code != 200:
+            logger.error("Wikipedia search error: HTTP %s — %s", r.status_code, r.text[:200])
             return summaries
         results = r.json().get("query", {}).get("search", [])
+        logger.info("Wikipedia search returned %d results for %r", len(results), term)
         random.shuffle(results)
         for item in results:
             if len(summaries) >= num:
                 break
             title_encoded = item["title"].replace(" ", "_")
             try:
-                s = await client.get(f"{WIKIPEDIA_REST}/{title_encoded}", follow_redirects=True)
+                s = await client.get(
+                    f"{WIKIPEDIA_SUMMARY}/{title_encoded}",
+                    follow_redirects=True,
+                )
                 if s.status_code == 200:
                     data = s.json()
                     extract = data.get("extract", "")
                     if extract and len(extract) > 150:
                         summaries.append(f"**{item['title']}**\n{extract[:1800]}")
+                else:
+                    logger.debug("Wikipedia summary for %r: HTTP %s", item["title"], s.status_code)
             except Exception as exc:
-                logger.warning("Wikipedia summary fetch error for %s: %s", item["title"], exc)
+                logger.error("Wikipedia summary fetch for %r: %s", item["title"], exc)
     except Exception as exc:
-        logger.warning("Wikipedia search error: %s", exc)
+        logger.error("Wikipedia search exception: %s", exc, exc_info=True)
+    logger.info("Wikipedia fetched %d/%d summaries for category=%r", len(summaries), num, category)
     return summaries
 
 
 async def fetch_wikipedia_summaries(category: str, num_articles: int) -> list[str]:
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=30, headers=_WIKI_HEADERS) as client:
         if category in ("Random", "RandomMix"):
-            return await _fetch_random_summaries(client, num_articles)
-        return await _fetch_category_summaries(client, category, num_articles)
+            summaries = await _fetch_random_summaries(client, num_articles)
+        else:
+            summaries = await _fetch_category_summaries(client, category, num_articles)
+        if not summaries:
+            logger.error(
+                "fetch_wikipedia_summaries returned 0 results for category=%r num=%d",
+                category, num_articles,
+            )
+        return summaries
 
 # ── Response normalisation ────────────────────────────────────────────────────
 
