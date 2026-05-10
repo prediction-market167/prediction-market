@@ -383,11 +383,14 @@ async def save_generated_questions(
         db.add(q)
         created.append(q)
 
-    await db.flush()
-    for q in created:
-        await db.refresh(q)
-    await db.commit()
-    return {"created": len(created), "questions": [QuestionResponse.model_validate(q) for q in created]}
+    try:
+        await db.flush()
+        await db.commit()
+    except Exception as exc:
+        logger.error("save-batch DB error: %s", exc, exc_info=True)
+        raise HTTPException(500, f"Database error: {exc}")
+
+    return {"created": len(created)}
 
 
 @router.delete("/{question_id}", status_code=204)
