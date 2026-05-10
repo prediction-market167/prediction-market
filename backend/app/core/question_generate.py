@@ -295,7 +295,7 @@ async def generate_questions(category: str, count: int) -> list[dict]:
     client = AsyncAnthropic(api_key=api_key)
     message = await client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=8192,
+        max_tokens=16000,
         messages=[{"role": "user", "content": prompt}],
     )
 
