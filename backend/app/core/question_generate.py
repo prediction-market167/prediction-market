@@ -303,43 +303,47 @@ async def generate_questions_scheduled(target_per_tier: int = 10) -> dict:
     from app.models.question import Question, QuestionTier, QuestionStatus, TranslationStatus
 
     saved = 0
-    async with AsyncSessionLocal() as db:
-        # Fetch current max order_idx per tier
-        tier_counts: dict[str, int] = {}
-        for tier_val in QuestionTier:
-            res = await db.execute(
-                select(sqlfunc.count()).where(Question.tier == tier_val)
-            )
-            tier_counts[tier_val.value] = res.scalar_one() or 0
+    try:
+        async with AsyncSessionLocal() as db:
+            # Fetch current count per tier to assign order_idx
+            tier_counts: dict[str, int] = {}
+            for tier_val in QuestionTier:
+                res = await db.execute(
+                    select(sqlfunc.count(Question.id)).where(Question.tier == tier_val)
+                )
+                tier_counts[tier_val.value] = res.scalar_one() or 0
 
-        for q_data in questions:
-            try:
-                tier = QuestionTier(q_data["tier"])
-            except ValueError:
-                continue
-            order_idx = tier_counts[tier.value]
-            tier_counts[tier.value] += 1
+            for q_data in questions:
+                try:
+                    tier = QuestionTier(q_data["tier"])
+                except ValueError:
+                    continue
+                order_idx = tier_counts[tier.value]
+                tier_counts[tier.value] += 1
 
-            q = Question(
-                tier=tier,
-                order_idx=order_idx,
-                question_mn=q_data["question_mn"],
-                question_en=q_data["question_en"],
-                question_ru=q_data["question_ru"],
-                question_hi=q_data["question_hi"],
-                options_mn=q_data["options_mn"],
-                options_en=q_data["options_en"],
-                options_ru=q_data["options_ru"],
-                options_hi=q_data["options_hi"],
-                correct_option_idx=q_data["correct_option_idx"],
-                is_used=False,
-                status=QuestionStatus.UNUSED,
-                translation_status=TranslationStatus.DONE,
-            )
-            db.add(q)
-            saved += 1
+                q = Question(
+                    tier=tier,
+                    order_idx=order_idx,
+                    question_mn=q_data["question_mn"],
+                    question_en=q_data["question_en"],
+                    question_ru=q_data["question_ru"],
+                    question_hi=q_data["question_hi"],
+                    options_mn=q_data["options_mn"],
+                    options_en=q_data["options_en"],
+                    options_ru=q_data["options_ru"],
+                    options_hi=q_data["options_hi"],
+                    correct_option_idx=q_data["correct_option_idx"],
+                    is_used=False,
+                    status=QuestionStatus.UNUSED,
+                    translation_status=TranslationStatus.DONE,
+                )
+                db.add(q)
+                saved += 1
 
-        await db.commit()
+            await db.commit()
+    except Exception as exc:
+        logger.error("Scheduled generation DB error: %s", exc, exc_info=True)
+        return {"saved": 0, "error": f"Database error: {exc}"}
 
     logger.info("Scheduled generation complete: saved %d questions", saved)
     return {"saved": saved, "category": category}

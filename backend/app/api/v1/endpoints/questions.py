@@ -172,7 +172,7 @@ async def upload_questions(
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
         count_res = await db.execute(
-            select(func.count()).where(Question.tier == tier_val)
+            select(func.count(Question.id)).where(Question.tier == tier_val)
         )
         tier_counts[tier_val.value] = count_res.scalar_one() or 0
 
@@ -306,7 +306,7 @@ async def generate_questions_endpoint(
 
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
-        res = await db.execute(select(func.count()).where(Question.tier == tier_val))
+        res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
         tier_counts[tier_val.value] = res.scalar_one() or 0
 
     created = _questions_to_db(auto_save, tier_counts, db)
@@ -330,7 +330,11 @@ async def auto_generate_questions(
     from a randomly chosen topic.  All questions are saved directly — no preview.
     """
     from app.core.question_generate import generate_questions_scheduled
-    result = await generate_questions_scheduled(target_per_tier=10)
+    try:
+        result = await generate_questions_scheduled(target_per_tier=10)
+    except Exception as exc:
+        logger.error("Auto-generate endpoint error: %s", exc, exc_info=True)
+        raise HTTPException(500, f"Auto-generation failed: {exc}")
     if result.get("error"):
         raise HTTPException(500, result["error"])
     return result
@@ -345,7 +349,7 @@ async def save_generated_questions(
     """Persist a batch of generated (and admin-reviewed) questions."""
     tier_counts: dict[str, int] = {}
     for tier_val in QuestionTier:
-        count_res = await db.execute(select(func.count()).where(Question.tier == tier_val))
+        count_res = await db.execute(select(func.count(Question.id)).where(Question.tier == tier_val))
         tier_counts[tier_val.value] = count_res.scalar_one() or 0
 
     created = []
