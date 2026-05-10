@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import adminApi, { MarketCreatePayload, JackpotCriteria, type AdminWithdrawal } from '@/api/admin'
 import GemIcon from '@/components/common/GemIcon'
-import questionsApi, { type GeneratedQuestionItem } from '@/api/questions'
+import questionsApi, { type GeneratedQuestionItem, type GenerateResponse } from '@/api/questions'
 import referralApi from '@/api/referral'
 import type { Market, MarketOutcome, User, Question, QuestionTier, QuestionStatus } from '@/types'
 import { Sparkles, X as XIcon } from 'lucide-react'
@@ -343,21 +343,29 @@ function UsersTab() {
 
 // ─── Generate Modal ───────────────────────────────────────────────────────────
 
-const GENERATE_CATEGORIES = ['Science', 'History', 'Geography', 'Sports', 'Technology', 'Nature', 'Art', 'Economy', 'Random']
-const GENERATE_COUNTS = [10, 20, 50]
+const GENERATE_CATEGORIES = [
+  'Random',
+  'Science', 'History', 'Geography', 'Sports', 'Technology',
+  'Nature', 'Art', 'Economy', 'Biology', 'Physics',
+  'Chemistry', 'Literature', 'Music', 'Film', 'Architecture',
+  'Medicine', 'Mathematics', 'Space', 'Ocean', 'Animals',
+]
+const GENERATE_COUNTS = [10, 20, 40]
 
 function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { t } = useTranslation()
-  const [category, setCategory] = useState('Science')
-  const [count, setCount] = useState(10)
-  const [preview, setPreview] = useState<GeneratedQuestionItem[] | null>(null)
+  const [category, setCategory] = useState('Random')
+  const [count, setCount] = useState(20)
+  const [result, setResult] = useState<GenerateResponse | null>(null)
+  const [hardPreview, setHardPreview] = useState<GeneratedQuestionItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   const generateMut = useMutation({
     mutationFn: () => questionsApi.generate({ category, count }),
     onSuccess: (data) => {
-      setPreview(data)
+      setResult(data)
+      setHardPreview(data.preview)
       setError(null)
     },
     onError: (err: any) => {
@@ -367,18 +375,22 @@ function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   })
 
   const saveMut = useMutation({
-    mutationFn: () => questionsApi.saveBatch(preview ?? []),
+    mutationFn: () => questionsApi.saveBatch(hardPreview),
     onSuccess: (data) => {
-      setSuccess(t('admin.questions.generateSuccess', { count: data.created }))
-      setPreview(null)
+      setSuccess(t('admin.questions.generateSuccess', { count: (result?.saved ?? 0) + data.created }))
+      setResult(null)
+      setHardPreview([])
       onSaved()
     },
     onError: () => setError(t('admin.questions.generateFailed')),
   })
 
   const removeItem = (idx: number) => {
-    setPreview(p => p ? p.filter((_, i) => i !== idx) : p)
+    setHardPreview(p => p.filter((_, i) => i !== idx))
   }
+
+  const showForm  = !result && !success
+  const showPreview = !!result
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-y-auto py-8 px-4">
@@ -393,7 +405,7 @@ function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </button>
         </div>
 
-        {!preview && !success && (
+        {showForm && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-ink-400 mb-1">{t('admin.questions.generateCategory')}</label>
@@ -419,6 +431,8 @@ function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
                 ))}
               </select>
             </div>
+
+            <p className="text-xs text-ink-500">{t('admin.questions.autoGenerateFullDesc')}</p>
 
             {error && (
               <div className="rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no">{error}</div>
@@ -454,73 +468,92 @@ function GenerateModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </div>
         )}
 
-        {preview && (
+        {showPreview && (
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-ink-300">
-                {t('admin.questions.generatePreview', { count: preview.length })}
-              </p>
-              <button
-                onClick={() => setPreview(null)}
-                className="text-xs text-ink-500 hover:text-ink-200 transition-colors"
-              >
-                ← {t('admin.questions.generateClose')}
-              </button>
-            </div>
-
-            {error && (
-              <div className="mb-3 rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no">{error}</div>
+            {/* Auto-saved banner */}
+            {(result?.saved ?? 0) > 0 && (
+              <div className="mb-4 rounded-xl px-4 py-3 bg-yes/10 border border-yes/30 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-yes flex-shrink-0" />
+                <p className="text-sm text-yes font-medium">
+                  {t('admin.questions.generateAutoSaved', { count: result!.saved })}
+                </p>
+              </div>
             )}
 
-            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1 mb-4">
-              {preview.map((item, idx) => (
-                <div key={idx} className="rounded-xl border border-surface-600 bg-surface-800 p-3">
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[item.tier as QuestionTier] ?? ''}`}>
-                      {item.tier}
-                    </span>
-                    <button
-                      onClick={() => removeItem(idx)}
-                      className="p-1 rounded text-ink-600 hover:text-no hover:bg-no/10 transition-colors flex-shrink-0"
-                      title={t('admin.questions.generateRemove')}
-                    >
-                      <XIcon className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-ink-200 font-medium mb-1.5">{item.question_en}</p>
-                  <p className="text-[10px] text-ink-500 mb-1">{item.question_ru}</p>
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {item.options_en.map((opt, oi) => (
-                      <span
-                        key={oi}
-                        className={`text-[10px] px-2 py-0.5 rounded border ${oi === item.correct_option_idx ? 'bg-yes/15 text-yes border-yes/30 font-bold' : 'bg-surface-700 text-ink-500 border-surface-600'}`}
-                      >
-                        {String.fromCharCode(65 + oi)}. {opt}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {preview.length === 0 ? (
-              <p className="text-center text-sm text-ink-500 py-4">{t('admin.questions.generateEmpty')}</p>
-            ) : (
-              <div className="flex justify-end gap-3">
-                <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors">
+            {hardPreview.length === 0 && (result?.saved ?? 0) > 0 ? (
+              <div className="text-center py-6">
+                <p className="text-ink-400 text-sm mb-4">{t('admin.questions.generateSuccess', { count: result!.saved })}</p>
+                <button onClick={() => { onSaved(); onClose() }} className="btn-primary text-sm px-6 py-2">
                   {t('admin.questions.generateClose')}
                 </button>
-                <button
-                  onClick={() => saveMut.mutate()}
-                  disabled={saveMut.isPending}
-                  className="btn-primary text-sm px-5 py-2 flex items-center gap-2 disabled:opacity-50"
-                >
-                  {saveMut.isPending
-                    ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.questions.generateSaving')}</>
-                    : <>{t('admin.questions.generateSaveAll')}</>
-                  }
-                </button>
               </div>
+            ) : hardPreview.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-ink-300">
+                    {t('admin.questions.generatePreview', { count: hardPreview.length })}
+                  </p>
+                  <button
+                    onClick={() => { setResult(null); setHardPreview([]) }}
+                    className="text-xs text-ink-500 hover:text-ink-200 transition-colors"
+                  >
+                    ← {t('admin.questions.generateClose')}
+                  </button>
+                </div>
+
+                {error && (
+                  <div className="mb-3 rounded-xl px-4 py-3 bg-no/10 border border-no/20 text-sm text-no">{error}</div>
+                )}
+
+                <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1 mb-4">
+                  {hardPreview.map((item, idx) => (
+                    <div key={idx} className="rounded-xl border border-surface-600 bg-surface-800 p-3">
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${TIER_COLORS[item.tier as QuestionTier] ?? ''}`}>
+                          {item.tier}
+                        </span>
+                        <button
+                          onClick={() => removeItem(idx)}
+                          className="p-1 rounded text-ink-600 hover:text-no hover:bg-no/10 transition-colors flex-shrink-0"
+                          title={t('admin.questions.generateRemove')}
+                        >
+                          <XIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-ink-200 font-medium mb-1">{item.question_en}</p>
+                      <p className="text-[10px] text-ink-500 mb-1.5">{item.question_ru}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {item.options_en.map((opt, oi) => (
+                          <span
+                            key={oi}
+                            className={`text-[10px] px-2 py-0.5 rounded border ${oi === item.correct_option_idx ? 'bg-yes/15 text-yes border-yes/30 font-bold' : 'bg-surface-700 text-ink-500 border-surface-600'}`}
+                          >
+                            {String.fromCharCode(65 + oi)}. {opt}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-400 hover:text-ink-100 transition-colors">
+                    {t('admin.questions.generateClose')}
+                  </button>
+                  <button
+                    onClick={() => saveMut.mutate()}
+                    disabled={saveMut.isPending}
+                    className="btn-primary text-sm px-5 py-2 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {saveMut.isPending
+                      ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.questions.generateSaving')}</>
+                      : <>{t('admin.questions.generateSaveHard', { count: hardPreview.length })}</>
+                    }
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-sm text-ink-500 py-4">{t('admin.questions.generateEmpty')}</p>
             )}
           </div>
         )}
@@ -577,6 +610,22 @@ function QuestionsTab() {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all')
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [autoGenSuccess, setAutoGenSuccess] = useState<string | null>(null)
+  const [autoGenError, setAutoGenError] = useState<string | null>(null)
+
+  const autoGenMut = useMutation({
+    mutationFn: questionsApi.autoGenerate,
+    onSuccess: (data) => {
+      setAutoGenSuccess(t('admin.questions.autoGenerateSuccess', { count: data.saved, category: data.category ?? '?' }))
+      setAutoGenError(null)
+      invalidate()
+      setTimeout(() => setAutoGenSuccess(null), 8000)
+    },
+    onError: () => {
+      setAutoGenError(t('admin.questions.autoGenerateFailed'))
+      setTimeout(() => setAutoGenError(null), 6000)
+    },
+  })
 
   const { data: counts } = useQuery({
     queryKey: ['admin', 'questions', 'counts'],
@@ -650,6 +699,20 @@ function QuestionsTab() {
         />
       )}
 
+      {/* Auto-generate notifications */}
+      {autoGenSuccess && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-yes/10 border border-yes/30 flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-yes flex-shrink-0" />
+          <p className="text-sm text-yes font-medium">{autoGenSuccess}</p>
+        </div>
+      )}
+      {autoGenError && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-no/10 border border-no/20 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-no flex-shrink-0" />
+          <p className="text-sm text-no">{autoGenError}</p>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} className="hidden" />
@@ -668,6 +731,18 @@ function QuestionsTab() {
         >
           <Sparkles className="w-4 h-4" />
           {t('admin.questions.autoGenerate')}
+        </button>
+
+        <button
+          onClick={() => autoGenMut.mutate()}
+          disabled={autoGenMut.isPending}
+          className="text-sm px-4 py-2 rounded-xl flex items-center gap-2 bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 transition-colors disabled:opacity-50"
+          title={t('admin.questions.autoGenerateFullDesc')}
+        >
+          {autoGenMut.isPending
+            ? <><RefreshCw className="w-4 h-4 animate-spin" />{t('admin.questions.autoGenerating')}</>
+            : <><Zap className="w-4 h-4" />{t('admin.questions.autoGenerateFull')}</>
+          }
         </button>
 
         <button

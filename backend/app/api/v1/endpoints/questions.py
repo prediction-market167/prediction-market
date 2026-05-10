@@ -14,7 +14,7 @@ from app.models.user import User
 from app.models.question import Question, QuestionTier, QuestionStatus, TranslationStatus
 from app.schemas.question import (
     QuestionResponse, QuestionCountsResponse,
-    GenerateRequest, GeneratedQuestionItem, SaveBatchRequest,
+    GenerateRequest, GeneratedQuestionItem, GenerateResponse, SaveBatchRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -248,12 +248,48 @@ async def reset_question_status(
     return QuestionResponse.model_validate(q)
 
 
-@router.post("/generate", response_model=List[GeneratedQuestionItem])
+def _questions_to_db(parsed: list[dict], tier_counts: dict[str, int], db) -> list:
+    """Create Question ORM objects from normalised dicts. Mutates tier_counts."""
+    created = []
+    for q_data in parsed:
+        try:
+            tier = QuestionTier(q_data["tier"])
+        except ValueError:
+            continue
+        order_idx = tier_counts[tier.value]
+        tier_counts[tier.value] += 1
+        q = Question(
+            tier=tier,
+            order_idx=order_idx,
+            question_mn=q_data["question_mn"],
+            question_en=q_data["question_en"],
+            question_ru=q_data["question_ru"],
+            question_hi=q_data["question_hi"],
+            options_mn=q_data["options_mn"],
+            options_en=q_data["options_en"],
+            options_ru=q_data["options_ru"],
+            options_hi=q_data["options_hi"],
+            correct_option_idx=q_data["correct_option_idx"],
+            is_used=False,
+            status=QuestionStatus.UNUSED,
+            translation_status=TranslationStatus.DONE,
+        )
+        db.add(q)
+        created.append(q)
+    return created
+
+
+@router.post("/generate", response_model=GenerateResponse)
 async def generate_questions_endpoint(
     req: GenerateRequest,
+    db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_superuser),
 ):
-    """Generate questions from Wikipedia + Claude. Returns preview list (not saved yet)."""
+    """
+    Generate questions from Wikipedia + Claude.
+    - free / easy / medium: saved directly to the database.
+    - hard: returned as a preview list for admin approval before saving.
+    """
     from app.core.question_generate import generate_questions
     try:
         questions = await generate_questions(req.category, req.count)
@@ -264,7 +300,40 @@ async def generate_questions_endpoint(
         raise HTTPException(500, "Generation failed. Please try again.")
     if not questions:
         raise HTTPException(422, "No valid questions were generated. Please try again.")
-    return questions
+
+    auto_save = [q for q in questions if q["tier"] != "hard"]
+    hard_preview = [q for q in questions if q["tier"] == "hard"]
+
+    tier_counts: dict[str, int] = {}
+    for tier_val in QuestionTier:
+        res = await db.execute(select(func.count()).where(Question.tier == tier_val))
+        tier_counts[tier_val.value] = res.scalar_one() or 0
+
+    created = _questions_to_db(auto_save, tier_counts, db)
+    await db.flush()
+    for q in created:
+        await db.refresh(q)
+    await db.commit()
+
+    return GenerateResponse(
+        saved=len(created),
+        preview=[GeneratedQuestionItem(**q) for q in hard_preview],
+    )
+
+
+@router.post("/auto-generate", status_code=201)
+async def auto_generate_questions(
+    _: User = Depends(get_current_superuser),
+):
+    """
+    Trigger the full scheduled auto-generation (40 questions, 10 per tier)
+    from a randomly chosen topic.  All questions are saved directly — no preview.
+    """
+    from app.core.question_generate import generate_questions_scheduled
+    result = await generate_questions_scheduled(target_per_tier=10)
+    if result.get("error"):
+        raise HTTPException(500, result["error"])
+    return result
 
 
 @router.post("/save-batch", status_code=201)

@@ -66,5 +66,10 @@ class GeneratedQuestionItem(BaseModel):
     correct_option_idx: int
 
 
+class GenerateResponse(BaseModel):
+    saved: int
+    preview: list[GeneratedQuestionItem]
+
+
 class SaveBatchRequest(BaseModel):
     questions: list[GeneratedQuestionItem]

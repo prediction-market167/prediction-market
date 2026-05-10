@@ -24,6 +24,17 @@ export interface GeneratedQuestionItem {
   correct_option_idx: number
 }
 
+export interface GenerateResponse {
+  saved: number
+  preview: GeneratedQuestionItem[]
+}
+
+export interface AutoGenerateResult {
+  saved: number
+  category?: string
+  error?: string
+}
+
 const questionsApi = {
   list: (params?: { tier?: QuestionTier; status?: QuestionStatus }) =>
     apiClient
@@ -58,12 +69,17 @@ const questionsApi = {
 
   generate: (req: GenerateRequest) =>
     apiClient
-      .post<GeneratedQuestionItem[]>('/admin/questions/generate', req)
+      .post<GenerateResponse>('/admin/questions/generate', req)
       .then(r => r.data),
 
   saveBatch: (questions: GeneratedQuestionItem[]) =>
     apiClient
       .post<{ created: number }>('/admin/questions/save-batch', { questions })
+      .then(r => r.data),
+
+  autoGenerate: () =>
+    apiClient
+      .post<AutoGenerateResult>('/admin/questions/auto-generate')
       .then(r => r.data),
 }
 

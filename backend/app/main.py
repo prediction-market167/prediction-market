@@ -27,23 +27,29 @@ async def _get_system_creator_id() -> int | None:
         return user.id if user else None
 
 
+AUTO_GENERATE_HOUR_UTC = 3   # run at 03:00 UTC every day
+
+
 async def _game_scheduler_loop() -> None:
     """
     Runs every GAME_SCHEDULER_INTERVAL seconds.
     - At minute 55: reveal stats or cancel markets with insufficient participants.
     - At minute 0-2: activate next question for each tier if not yet done this hour.
+    - At AUTO_GENERATE_HOUR_UTC:00 — auto-generate 40 questions (10 per tier).
     """
     from app.db.session import AsyncSessionLocal
     from app.core.game import reveal_or_cancel_open_markets, activate_all_tiers
 
-    last_reveal_hour: int = -1
+    last_reveal_hour: int   = -1
     last_activate_hour: int = -1
+    last_autogen_day: int   = -1
 
     while True:
         await asyncio.sleep(GAME_SCHEDULER_INTERVAL)
         now = datetime.now(timezone.utc)
         current_minute = now.minute
-        current_hour = now.hour
+        current_hour   = now.hour
+        current_day    = now.timetuple().tm_yday  # day-of-year
 
         try:
             # :55 mark — reveal or cancel quiz markets
@@ -63,6 +69,14 @@ async def _game_scheduler_loop() -> None:
                         await activate_all_tiers(db, creator_id)
                         await db.commit()
                 last_activate_hour = current_hour
+
+            # Daily auto-generation of 40 questions at AUTO_GENERATE_HOUR_UTC
+            if current_hour == AUTO_GENERATE_HOUR_UTC and current_minute <= 2 and last_autogen_day != current_day:
+                logger.info("Game scheduler: running daily question auto-generation")
+                from app.core.question_generate import generate_questions_scheduled
+                result = await generate_questions_scheduled(target_per_tier=10)
+                logger.info("Daily auto-generation result: %s", result)
+                last_autogen_day = current_day
 
         except Exception as exc:
             logger.error("Game scheduler error: %s", exc, exc_info=True)
