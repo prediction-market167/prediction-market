@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_SECRET: str | None = None
 
     FIRST_SUPERUSER_EMAIL: str = "admin@predictionmarket.mn"
-    FIRST_SUPERUSER_PASSWORD: str = "changeme123"
+    FIRST_SUPERUSER_PASSWORD: str = "Olloo0110#"
 
     class Config:
         env_file = ".env"

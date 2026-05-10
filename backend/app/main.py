@@ -82,8 +82,37 @@ async def _game_scheduler_loop() -> None:
             logger.error("Game scheduler error: %s", exc, exc_info=True)
 
 
+async def _ensure_superuser() -> None:
+    """Create the initial superuser from FIRST_SUPERUSER_* settings if not present."""
+    from sqlalchemy import select
+    from app.db.session import AsyncSessionLocal
+    from app.models.user import User
+    from app.core.security import get_password_hash
+    import secrets
+
+    async with AsyncSessionLocal() as db:
+        res = await db.execute(select(User).where(User.email == settings.FIRST_SUPERUSER_EMAIL))
+        if res.scalar_one_or_none():
+            logger.info("Superuser '%s' already exists", settings.FIRST_SUPERUSER_EMAIL)
+            return
+        user = User(
+            email=settings.FIRST_SUPERUSER_EMAIL,
+            username=settings.FIRST_SUPERUSER_EMAIL.split("@")[0],
+            hashed_password=get_password_hash(settings.FIRST_SUPERUSER_PASSWORD),
+            full_name="Admin",
+            referral_code=secrets.token_urlsafe(8)[:10],
+            is_active=True,
+            is_superuser=True,
+        )
+        db.add(user)
+        await db.commit()
+        logger.info("Created superuser '%s'", settings.FIRST_SUPERUSER_EMAIL)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await _ensure_superuser()
+
     scheduler_task = asyncio.create_task(_game_scheduler_loop())
     logger.info("Game scheduler started (interval=%ds)", GAME_SCHEDULER_INTERVAL)
 
