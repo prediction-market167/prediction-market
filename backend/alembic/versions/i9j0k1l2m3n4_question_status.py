@@ -14,25 +14,30 @@ down_revision: Union[str, None] = 'h8i9j0k1l2m3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-questionstatus = sa.Enum('unused', 'scheduled_unused', 'used', name='questionstatus')
-
 
 def upgrade() -> None:
-    questionstatus.create(op.get_bind(), checkfirst=True)
-    op.add_column(
-        'questions',
-        sa.Column(
-            'status',
-            questionstatus,
-            nullable=False,
-            server_default='unused',
-        ),
-    )
-    # Backfill: existing is_used=true rows become 'used', false stays 'unused'
-    op.execute("UPDATE questions SET status = 'used' WHERE is_used = true")
-    op.execute("UPDATE questions SET status = 'unused' WHERE is_used = false")
+    # Ensure the enum type exists (safe on both fresh and existing databases)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE questionstatus AS ENUM ('unused', 'scheduled_unused', 'used');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$
+    """)
+
+    # Add the column only if it doesn't already exist.
+    # On fresh databases the column is already included in the create_table in
+    # d4e5f6a7b8c9, so this becomes a no-op.
+    op.execute("""
+        ALTER TABLE questions
+            ADD COLUMN IF NOT EXISTS status questionstatus NOT NULL DEFAULT 'unused'
+    """)
+
+    # Backfill: existing is_used=true rows become 'used'
+    op.execute("UPDATE questions SET status = 'used' WHERE is_used = true AND status = 'unused'")
 
 
 def downgrade() -> None:
-    op.drop_column('questions', 'status')
-    questionstatus.drop(op.get_bind(), checkfirst=True)
+    op.execute("""
+        ALTER TABLE questions DROP COLUMN IF EXISTS status
+    """)
+    op.execute("DROP TYPE IF EXISTS questionstatus")

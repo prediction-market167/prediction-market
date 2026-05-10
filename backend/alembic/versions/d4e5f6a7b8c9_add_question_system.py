@@ -17,9 +17,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # 1. Add new values to betside enum (PostgreSQL requires these to be committed first)
-    op.execute("ALTER TYPE betside ADD VALUE IF NOT EXISTS 'opt2'")
-    op.execute("ALTER TYPE betside ADD VALUE IF NOT EXISTS 'opt3'")
+    # 1. Add new values to betside enum.
+    #    ALTER TYPE ... ADD VALUE cannot run inside a transaction on older PostgreSQL,
+    #    so we use a DO block that silently ignores duplicate-object errors.
+    op.execute("""
+        DO $$ BEGIN
+            ALTER TYPE betside ADD VALUE IF NOT EXISTS 'opt2';
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            ALTER TYPE betside ADD VALUE IF NOT EXISTS 'opt3';
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$
+    """)
 
     # 2. Create enum types for questions
     op.execute("""
@@ -34,8 +46,15 @@ def upgrade() -> None:
         EXCEPTION WHEN duplicate_object THEN null;
         END $$
     """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE questionstatus AS ENUM ('unused', 'scheduled_unused', 'used');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$
+    """)
 
-    # 3. Create questions table
+    # 3. Create questions table — includes status column so fresh DBs never need
+    #    the separate i9j0k1l2m3n4 migration to add it.
     op.create_table(
         'questions',
         sa.Column('id', sa.Integer(), primary_key=True, index=True),
@@ -51,6 +70,7 @@ def upgrade() -> None:
         sa.Column('options_hi', sa.JSON(), nullable=True),
         sa.Column('correct_option_idx', sa.Integer(), nullable=False),
         sa.Column('is_used', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('status', sa.Enum('unused', 'scheduled_unused', 'used', name='questionstatus', create_type=False), nullable=False, server_default='unused'),
         sa.Column('translation_status', sa.Enum('pending', 'done', 'failed', name='translationstatus', create_type=False), nullable=False, server_default='pending'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -77,5 +97,6 @@ def downgrade() -> None:
     op.drop_column('markets', 'title_en')
     op.drop_column('markets', 'tier')
     op.drop_table('questions')
+    op.execute("DROP TYPE IF EXISTS questionstatus")
     op.execute("DROP TYPE IF EXISTS questiontier")
     op.execute("DROP TYPE IF EXISTS translationstatus")
