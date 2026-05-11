@@ -122,13 +122,14 @@ async def _game_scheduler_loop(shutdown: asyncio.Event) -> None:
             if current_minute < 55 and last_activate_hour != current_hour:
                 creator_id = await _get_system_creator_id()
                 if creator_id:
-                    last_activate_hour = current_hour
                     async with AsyncSessionLocal() as db:
                         if await _try_advisory_lock(db, _LOCK_ACTIVATE):
                             logger.info("Game scheduler: activating hourly questions for hour %s", current_hour)
                             await activate_all_tiers(db, creator_id)
                             await db.commit()
+                            last_activate_hour = current_hour  # only after success
                         else:
+                            last_activate_hour = current_hour  # lock held — no need to retry
                             logger.debug("Scheduler: activate lock held by another instance, skipping")
 
             # Daily auto-generation of 40 questions at AUTO_GENERATE_HOUR_UTC
@@ -260,6 +261,45 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
+
+
+@app.get("/debug/scheduler")
+async def debug_scheduler():
+    """Check DB column existence and whether scheduler can create a market."""
+    from app.db.session import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        col_result = await db.execute(text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'markets'
+            ORDER BY ordinal_position
+        """))
+        columns = [r[0] for r in col_result]
+
+        quiz_cols = ["title_en", "title_ru", "title_hi", "tier",
+                     "options", "correct_option_idx", "revealed_at", "question_id"]
+        missing = [c for c in quiz_cols if c not in columns]
+
+        questions_result = await db.execute(text(
+            "SELECT COUNT(*) FROM questions WHERE status = 'unused' OR status = 'scheduled_unused'"
+        ))
+        unused_questions = questions_result.scalar()
+
+        open_markets_result = await db.execute(text(
+            "SELECT tier, COUNT(*) FROM markets WHERE status = 'open' GROUP BY tier"
+        ))
+        open_by_tier = {r[0]: r[1] for r in open_markets_result}
+
+        creator_id = await _get_system_creator_id()
+
+    return {
+        "missing_quiz_columns": missing,
+        "all_columns": columns,
+        "unused_questions": unused_questions,
+        "open_markets_by_tier": open_by_tier,
+        "system_creator_id": creator_id,
+        "startup_migration": _migration_result,
+    }
 
 
 @app.get("/debug/db-enums")
