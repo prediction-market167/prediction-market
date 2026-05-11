@@ -49,6 +49,9 @@ class Market(Base, TimestampMixin):
     options: Mapped[dict | None] = mapped_column(JSON)  # {"mn": [...], "en": [...], "ru": [...], "hi": [...]}
     correct_option_idx: Mapped[int | None] = mapped_column(Integer)  # stored, hidden until revealed
     revealed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))
+    # Partial unique index (WHERE question_id IS NOT NULL) prevents the same
+    # question from being activated as two simultaneous markets. See migration
+    # n4o5p6q7r8s9. NULLs are allowed for legacy non-quiz markets.
     question_id: Mapped[int | None] = mapped_column(ForeignKey("questions.id"))
 
     close_date: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)

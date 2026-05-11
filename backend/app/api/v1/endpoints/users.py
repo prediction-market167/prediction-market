@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,6 +16,25 @@ from app.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter()
 
+# Accepts TON user-friendly addresses (48 base64url chars, e.g. EQD... / UQD...)
+# and raw addresses (workchain_id:64_hex_chars, e.g. 0:abcdef...).
+_TON_ADDRESS_RE = re.compile(
+    r'^(?:[0-9A-Za-z_-]{48}|-?[0-9]:[0-9a-fA-F]{64})$'
+)
+
+
+def _validate_ton_address(address: str) -> str:
+    """Strip, validate and return a TON wallet address; raise 400 if invalid."""
+    addr = address.strip()
+    if not addr:
+        raise HTTPException(status_code=400, detail="Wallet address is required")
+    if not _TON_ADDRESS_RE.match(addr):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid TON wallet address. Expected a 48-character user-friendly address (e.g. EQD...) or raw format (0:hex64).",
+        )
+    return addr
+
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
@@ -26,7 +46,10 @@ async def update_me(
     user_in: UserUpdate,
     current_user: User = Depends(get_current_user),
 ):
-    for field, value in user_in.model_dump(exclude_unset=True).items():
+    data = user_in.model_dump(exclude_unset=True)
+    if "ton_wallet_address" in data and data["ton_wallet_address"] is not None:
+        data["ton_wallet_address"] = _validate_ton_address(data["ton_wallet_address"])
+    for field, value in data.items():
         setattr(current_user, field, value)
     return current_user
 
@@ -72,9 +95,7 @@ async def withdraw(
             status_code=400,
             detail=f"Minimum withdrawal is {MIN_WITHDRAWAL_GEMS} Gems",
         )
-    wallet = body.wallet_address.strip()
-    if not wallet:
-        raise HTTPException(status_code=400, detail="Wallet address is required")
+    wallet = _validate_ton_address(body.wallet_address)
     if current_user.balance < Decimal(body.amount_gems):
         raise HTTPException(status_code=400, detail="Insufficient balance")
 

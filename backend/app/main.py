@@ -161,7 +161,13 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(_game_scheduler_loop(shutdown_event))
     logger.info("Game scheduler started (interval=%ds)", GAME_SCHEDULER_INTERVAL)
 
-    if settings.TELEGRAM_BOT_TOKEN:
+    if not settings.TELEGRAM_BOT_TOKEN:
+        logger.warning(
+            "TELEGRAM_BOT_TOKEN is not set — Telegram bot, webhook endpoint, "
+            "and all in-app push notifications are disabled. "
+            "Set TELEGRAM_BOT_TOKEN in environment variables to enable them."
+        )
+    else:
         from app.bot.application import get_application
         bot_app = get_application()
         await bot_app.initialize()

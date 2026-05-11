@@ -619,9 +619,12 @@ async def approve_withdrawal(
     w.tx_hash = tx_hash
     if body.note:
         w.note = body.note
-    await db.flush()
+    # Commit before sending notification so the DB record is durable
+    # regardless of whether the Telegram message is delivered.
+    await db.commit()
 
-    # Notify user via Telegram
+    # Notify user after commit — failure here is logged but does not
+    # roll back the already-completed withdrawal.
     user_res = await db.execute(select(User).where(User.id == w.user_id))
     user = user_res.scalar_one_or_none()
     if user and user.telegram_id:
