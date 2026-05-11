@@ -405,5 +405,5 @@ async def delete_question(
         raise HTTPException(404, "Question not found")
     if q.status == QuestionStatus.used:
         raise HTTPException(400, "Cannot delete a question that has already been used")
-    await db.delete(q)
+    db.delete(q)
     await db.commit()

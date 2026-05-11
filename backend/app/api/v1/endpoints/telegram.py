@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 
 @router.post("/webhook")
 async def telegram_webhook(request: Request):
-    if settings.TELEGRAM_WEBHOOK_SECRET:
-        secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-        if secret != settings.TELEGRAM_WEBHOOK_SECRET:
-            raise HTTPException(status_code=403, detail="Invalid secret token")
+    if not settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if secret != settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid secret token")
 
     try:
         data = await request.json()

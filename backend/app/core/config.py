@@ -35,7 +35,11 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://prediction-market-nine-blond.vercel.app",
+        "https://prediction-market-pphj.onrender.com",
+    ]
 
     DEPOSIT_TON_ADDRESS: str | None = None
     MASTER_ADMIN_WALLET: str | None = None
@@ -47,7 +51,7 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_SECRET: str | None = None
 
     FIRST_SUPERUSER_EMAIL: str = "admin@predictionmarket.mn"
-    FIRST_SUPERUSER_PASSWORD: str = "Olloo0110#"
+    FIRST_SUPERUSER_PASSWORD: str
 
     class Config:
         env_file = ".env"
