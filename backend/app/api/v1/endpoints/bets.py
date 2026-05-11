@@ -196,7 +196,13 @@ async def place_bet(
                 total_revenue=amount,
             ))
 
-    await _handle_referral_bonus(market, current_user, amount, db)
+    try:
+        await _handle_referral_bonus(market, current_user, amount, db)
+    except Exception as exc:
+        logger.error(
+            "Referral bonus failed for user=%s market=%s: %s",
+            current_user.id, market.id, exc, exc_info=True,
+        )
 
     await db.flush()
     await db.refresh(bet)

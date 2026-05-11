@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Enum, Numeric, String
+from sqlalchemy import ForeignKey, Enum, Numeric, String, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin
 from decimal import Decimal
@@ -25,6 +25,10 @@ SIDE_TO_OPTION_IDX = {v: k for k, v in OPTION_IDX_TO_SIDE.items()}
 
 class Bet(Base, TimestampMixin):
     __tablename__ = "bets"
+    __table_args__ = (
+        Index("ix_bets_user_id", "user_id"),
+        Index("ix_bets_market_user_status", "market_id", "user_id", "status"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)

@@ -26,7 +26,7 @@ class User(Base, TimestampMixin):
 
     # Referral system
     referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)
-    referred_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    referred_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     lifetime_referral_earnings: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"), nullable=False)
 
     bets = relationship("Bet", back_populates="user")
