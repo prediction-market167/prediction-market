@@ -173,7 +173,7 @@ const en = {
       telegramOnly: 'Telegram Stars payments are only available inside the Telegram app.',
       paymentStatus: 'Payment {{status}}. Please try again.',
       betFailed: 'Payment was processed but the entry could not be placed.',
-      timeout: 'Payment verification timed out. Contact support if Stars were deducted.',
+      timeout: 'Payment verification is taking longer than expected — the server may be starting up. Please check your balance in a moment; your Stars may have been processed successfully.',
     },
   },
   portfolio: {

@@ -33,7 +33,9 @@ class Settings(BaseSettings):
             v += ("&" if "?" in v else "?") + "ssl=require"
         return v
 
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Optional — not required for core functionality. If set, can be used
+    # for distributed rate limiting. Currently unused; rate limiter is in-memory.
+    REDIS_URL: str | None = None
 
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",

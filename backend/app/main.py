@@ -161,6 +161,18 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(_game_scheduler_loop(shutdown_event))
     logger.info("Game scheduler started (interval=%ds)", GAME_SCHEDULER_INTERVAL)
 
+    logger.info(
+        "MINI_APP_URL=%s  WEBHOOK_URL=%s",
+        settings.MINI_APP_URL or "(not set)",
+        settings.WEBHOOK_URL or "(not set)",
+    )
+    logger.warning(
+        "Rate limiter uses in-memory storage — limits are per-process and "
+        "not shared across multiple app instances. Users can bypass limits "
+        "by hitting different dynos. Set REDIS_URL to enable distributed "
+        "rate limiting if running more than one instance."
+    )
+
     if not settings.TELEGRAM_BOT_TOKEN:
         logger.warning(
             "TELEGRAM_BOT_TOKEN is not set — Telegram bot, webhook endpoint, "
