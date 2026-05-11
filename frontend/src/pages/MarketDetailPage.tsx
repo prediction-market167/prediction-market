@@ -108,7 +108,11 @@ export default function MarketDetailPage() {
   const localizedOptions = useMemo(() => {
     if (!market?.options) return null
     const opts = market.options
-    return (lang === 'ru' ? opts.ru : lang === 'hi' ? opts.hi : opts.en) || opts.en || []
+    const raw = (lang === 'ru' ? opts.ru : lang === 'hi' ? opts.hi : opts.en) || opts.en || []
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw) as string[] } catch { return [] }
+    }
+    return raw as string[]
   }, [market?.options, lang])
 
   const localizedTitle = useMemo(() => {

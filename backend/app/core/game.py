@@ -65,11 +65,20 @@ async def activate_question_for_tier(tier, db: AsyncSession, creator_id: int):
     if now.minute >= 55:
         close_date = (now + timedelta(hours=1)).replace(minute=55, second=0, microsecond=0)
 
+    def _opts(v):
+        if isinstance(v, str):
+            import json as _json
+            try:
+                return _json.loads(v)
+            except Exception:
+                return v
+        return v
+
     options_all = {
-        "mn": question.options_mn,
-        "en": question.options_en or question.options_mn,
-        "ru": question.options_ru or question.options_mn,
-        "hi": question.options_hi or question.options_mn,
+        "mn": _opts(question.options_mn),
+        "en": _opts(question.options_en or question.options_mn),
+        "ru": _opts(question.options_ru or question.options_mn),
+        "hi": _opts(question.options_hi or question.options_mn),
     }
 
     market = Market(

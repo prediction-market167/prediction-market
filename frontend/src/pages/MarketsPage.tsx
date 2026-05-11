@@ -132,12 +132,14 @@ export default function MarketsPage() {
 
   const { data: markets = [], isLoading } = useQuery({
     queryKey: ['markets', activeTier],
-    queryFn: () => marketsApi.list({ tier: activeTier, limit: 50 }),
+    queryFn: () => marketsApi.list({ tier: activeTier, status: 'open', limit: 50 }),
+    refetchInterval: 30_000,
   })
 
   const { data: allMarkets = [] } = useQuery({
     queryKey: ['markets', 'all'],
     queryFn: () => marketsApi.list({ status: 'open', limit: 200 }),
+    refetchInterval: 30_000,
   })
 
   const liveCountByTier = (tierId: string) =>
