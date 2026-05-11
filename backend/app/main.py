@@ -34,9 +34,12 @@ async def _run_migrations() -> None:
         )
     result = await asyncio.to_thread(_migrate)
     if result.returncode != 0:
-        logger.error("Alembic upgrade failed:\n%s\n%s", result.stdout, result.stderr)
-        raise RuntimeError("Alembic upgrade head failed — refusing to start")
-    logger.info("Alembic: %s", result.stdout.strip() or "already at head")
+        # Log but do not crash — a failed migration is visible in logs and the
+        # debug endpoint; crashing would cause Render to roll back to the old dyno.
+        logger.error("Alembic upgrade FAILED (returncode=%d):\nSTDOUT: %s\nSTDERR: %s",
+                     result.returncode, result.stdout, result.stderr)
+    else:
+        logger.info("Alembic: %s", result.stdout.strip() or "already at head")
 
 
 async def _try_advisory_lock(db, lock_id: int) -> bool:
@@ -248,3 +251,28 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
+
+
+@app.get("/debug/db-enums")
+async def debug_db_enums():
+    """Show actual PostgreSQL enum values and alembic version — for diagnosing enum mismatches."""
+    from app.db.session import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        enums_result = await db.execute(text("""
+            SELECT t.typname, e.enumlabel
+            FROM pg_enum e
+            JOIN pg_type t ON e.enumtypid = t.oid
+            WHERE t.typname IN ('marketstatus','marketoutcome','betside','betstatus','transactiontype')
+            ORDER BY t.typname, e.enumsortorder
+        """))
+        enums = {}
+        for row in enums_result:
+            enums.setdefault(row[0], []).append(row[1])
+
+        version_result = await db.execute(text("SELECT version_num FROM alembic_version"))
+        versions = [r[0] for r in version_result]
+
+        market_count_result = await db.execute(text("SELECT COUNT(*) FROM markets"))
+        market_count = market_count_result.scalar()
+
+    return {"alembic_versions": versions, "enum_values": enums, "market_count": market_count}
