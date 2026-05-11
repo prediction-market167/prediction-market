@@ -102,7 +102,7 @@ export default function MarketDetailPage() {
   const isQuiz = !!market?.tier
   const isFree = market?.tier === 'free'
   const betAmount = isFree ? 0 : 100
-  const isDarkPool = isQuiz && market?.status === 'open' && !market?.is_revealed
+  const isDarkPool = isQuiz && !isFree && market?.status === 'open' && !market?.is_revealed
 
   const lang = i18n.language.split('-')[0]
   const localizedOptions = useMemo(() => {
@@ -695,10 +695,18 @@ export default function MarketDetailPage() {
         </div>
       )}
 
-      {/* Standard betting panel (non-quiz or revealed quiz) */}
-      {token && market.status === 'open' && (!isQuiz || market.is_revealed) && (
+      {/* Standard betting panel (non-quiz, revealed quiz, or free quiz) */}
+      {token && market.status === 'open' && (!isQuiz || market.is_revealed || isFree) && (
         <div className="card">
-          {paymentState === 'success' ? (
+          {isFree && isRegistered && paymentState !== 'success' ? (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-bold text-emerald-400 mb-1">{t('game.alreadyEntered')}</h3>
+              <p className="text-sm text-ink-500">{t('game.alreadyEnteredHint')}</p>
+            </div>
+          ) : paymentState === 'success' ? (
             <div className="text-center py-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-gold flex items-center justify-center mx-auto mb-4 shadow-glow-gold">
                 <Zap className="w-8 h-8 text-surface-900" />

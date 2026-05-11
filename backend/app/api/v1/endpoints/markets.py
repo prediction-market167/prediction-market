@@ -19,18 +19,27 @@ MIN_PARTICIPANTS = 20
 
 
 def _apply_dark_pool(response: MarketResponse, participant_count: int) -> MarketResponse:
-    """Hide stats if market is in dark pool phase (open quiz market, not yet revealed)."""
+    """Apply visibility rules per market type:
+    - Paid quiz (open, unrevealed): dark pool — hide stats and correct answer.
+    - Free quiz (open): question immediately visible; hide correct answer until resolved.
+    - All others: fully revealed."""
     if (
         response.tier is not None
+        and response.tier != "free"
         and response.status == "open"
         and not response.is_revealed
     ):
-        # Determine pool_status without revealing count
+        # Paid dark pool: hide stats and correct answer
         response.pool_status = "threshold_met" if participant_count >= MIN_PARTICIPANTS else "gathering"
         response.participant_count = 0
         response.yes_probability = Decimal("0.5000")
         response.no_probability = Decimal("0.5000")
-        response.correct_option_idx = None  # hidden until revealed
+        response.correct_option_idx = None
+    elif response.tier == "free" and response.status == "open":
+        # Free: question visible immediately, but hide correct answer until resolved
+        response.participant_count = participant_count
+        response.is_revealed = True
+        response.correct_option_idx = None
     else:
         response.participant_count = participant_count
         response.is_revealed = True
