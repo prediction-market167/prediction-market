@@ -34,8 +34,14 @@ class Bet(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"), nullable=False, index=True)
 
-    side: Mapped[BetSide] = mapped_column(Enum(BetSide, name="betside"), nullable=False)
-    status: Mapped[BetStatus] = mapped_column(Enum(BetStatus), default=BetStatus.ACTIVE)
+    side: Mapped[BetSide] = mapped_column(
+        Enum(BetSide, name="betside", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False
+    )
+    status: Mapped[BetStatus] = mapped_column(
+        Enum(BetStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=BetStatus.ACTIVE
+    )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     probability_at_bet: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)

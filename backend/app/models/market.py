@@ -34,10 +34,12 @@ class Market(Base, TimestampMixin):
     tier: Mapped[str | None] = mapped_column(String(10), index=True)
 
     status: Mapped[MarketStatus] = mapped_column(
-        Enum(MarketStatus), default=MarketStatus.OPEN, index=True
+        Enum(MarketStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=MarketStatus.OPEN, index=True
     )
     outcome: Mapped[MarketOutcome] = mapped_column(
-        Enum(MarketOutcome), default=MarketOutcome.UNRESOLVED
+        Enum(MarketOutcome, values_callable=lambda obj: [e.value for e in obj]),
+        default=MarketOutcome.UNRESOLVED
     )
 
     yes_probability: Mapped[Decimal] = mapped_column(Numeric(5, 4), default=Decimal("0.5000"))

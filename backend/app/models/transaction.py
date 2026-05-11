@@ -23,7 +23,10 @@ class Transaction(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     bet_id: Mapped[int | None] = mapped_column(ForeignKey("bets.id"))
 
-    type: Mapped[TransactionType] = mapped_column(Enum(TransactionType), nullable=False)
+    type: Mapped[TransactionType] = mapped_column(
+        Enum(TransactionType, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False
+    )
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     balance_before: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     balance_after: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
