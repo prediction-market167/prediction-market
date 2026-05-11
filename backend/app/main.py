@@ -1,7 +1,10 @@
 import asyncio
 import logging
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +22,21 @@ GAME_SCHEDULER_INTERVAL = 30  # seconds between scheduler ticks
 # duplicate market reveals or activations across concurrent dynos.
 _LOCK_REVEAL   = 7001
 _LOCK_ACTIVATE = 7002
+
+
+async def _run_migrations() -> None:
+    """Run pending Alembic migrations at startup (thread-pool so event loop stays free)."""
+    backend_dir = Path(__file__).parent.parent  # backend/app/../ = backend/
+    def _migrate():
+        return subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            capture_output=True, text=True, cwd=backend_dir,
+        )
+    result = await asyncio.to_thread(_migrate)
+    if result.returncode != 0:
+        logger.error("Alembic upgrade failed:\n%s\n%s", result.stdout, result.stderr)
+        raise RuntimeError("Alembic upgrade head failed — refusing to start")
+    logger.info("Alembic: %s", result.stdout.strip() or "already at head")
 
 
 async def _try_advisory_lock(db, lock_id: int) -> bool:
@@ -157,6 +175,7 @@ async def lifespan(app: FastAPI):
             raise RuntimeError(_tz_msg)
         logger.warning(_tz_msg)
 
+    await _run_migrations()
     await _ensure_superuser()
 
     shutdown_event = asyncio.Event()
