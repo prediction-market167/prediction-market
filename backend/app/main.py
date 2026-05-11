@@ -118,8 +118,8 @@ async def _game_scheduler_loop(shutdown: asyncio.Event) -> None:
                     else:
                         logger.debug("Scheduler: reveal lock held by another instance, skipping")
 
-            # :00 mark (minutes 0-2 to be safe with scheduler granularity)
-            if current_minute <= 2 and last_activate_hour != current_hour:
+            # Activate markets any time before :55 (handles cold starts after minute 2)
+            if current_minute < 55 and last_activate_hour != current_hour:
                 creator_id = await _get_system_creator_id()
                 if creator_id:
                     last_activate_hour = current_hour
