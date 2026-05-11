@@ -284,9 +284,28 @@ async def debug_db_enums():
         market_count_result = await db.execute(text("SELECT COUNT(*) FROM markets"))
         market_count = market_count_result.scalar()
 
+        try:
+            raw_market_result = await db.execute(text(
+                "SELECT id, status::text, tier, options IS NOT NULL AS has_options FROM markets LIMIT 1"
+            ))
+            raw_market_rows = [dict(r._mapping) for r in raw_market_result]
+        except Exception as e:
+            raw_market_rows = {"error": str(e)}
+
+        try:
+            from app.models.market import Market
+            from sqlalchemy import select as sa_select
+            orm_result = await db.execute(sa_select(Market).limit(1))
+            orm_market = orm_result.scalar_one_or_none()
+            orm_market_info = {"id": orm_market.id, "status": str(orm_market.status)} if orm_market else None
+        except Exception as e:
+            orm_market_info = {"error": str(e)}
+
     return {
         "alembic_versions": versions,
         "enum_values": enums,
         "market_count": market_count,
+        "raw_market_query": raw_market_rows,
+        "orm_market_query": orm_market_info,
         "startup_migration": _migration_result,
     }
