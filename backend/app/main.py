@@ -1,8 +1,7 @@
 import asyncio
+import io
 import logging
-import subprocess
-import sys
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,22 +23,32 @@ _LOCK_REVEAL   = 7001
 _LOCK_ACTIVATE = 7002
 
 
+_migration_result: dict = {}  # populated by _run_migrations; exposed via /debug/db-enums
+
+
 async def _run_migrations() -> None:
-    """Run pending Alembic migrations at startup (thread-pool so event loop stays free)."""
-    backend_dir = Path(__file__).parent.parent  # backend/app/../ = backend/
+    """Run pending Alembic migrations at startup using the Alembic Python API."""
+    global _migration_result
+
     def _migrate():
-        return subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
-            capture_output=True, text=True, cwd=backend_dir,
-        )
+        from alembic.config import Config
+        from alembic import command
+
+        buf = io.StringIO()
+        alembic_cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
+        alembic_cfg.stdout = buf  # capture alembic output
+        try:
+            command.upgrade(alembic_cfg, "head")
+            return {"ok": True, "output": buf.getvalue()}
+        except Exception as exc:
+            return {"ok": False, "output": buf.getvalue(), "error": repr(exc)}
+
     result = await asyncio.to_thread(_migrate)
-    if result.returncode != 0:
-        # Log but do not crash — a failed migration is visible in logs and the
-        # debug endpoint; crashing would cause Render to roll back to the old dyno.
-        logger.error("Alembic upgrade FAILED (returncode=%d):\nSTDOUT: %s\nSTDERR: %s",
-                     result.returncode, result.stdout, result.stderr)
+    _migration_result = result
+    if result.get("ok"):
+        logger.info("Alembic upgrade OK: %s", result["output"].strip() or "already at head")
     else:
-        logger.info("Alembic: %s", result.stdout.strip() or "already at head")
+        logger.error("Alembic upgrade FAILED: %s\nOutput: %s", result.get("error"), result.get("output"))
 
 
 async def _try_advisory_lock(db, lock_id: int) -> bool:
@@ -255,7 +264,7 @@ async def health_check():
 
 @app.get("/debug/db-enums")
 async def debug_db_enums():
-    """Show actual PostgreSQL enum values and alembic version — for diagnosing enum mismatches."""
+    """Show actual PostgreSQL enum values, alembic version, and startup migration result."""
     from app.db.session import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         enums_result = await db.execute(text("""
@@ -275,4 +284,9 @@ async def debug_db_enums():
         market_count_result = await db.execute(text("SELECT COUNT(*) FROM markets"))
         market_count = market_count_result.scalar()
 
-    return {"alembic_versions": versions, "enum_values": enums, "market_count": market_count}
+    return {
+        "alembic_versions": versions,
+        "enum_values": enums,
+        "market_count": market_count,
+        "startup_migration": _migration_result,
+    }
