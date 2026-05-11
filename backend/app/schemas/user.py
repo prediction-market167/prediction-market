@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_serializer
 from decimal import Decimal
 from datetime import datetime
 
@@ -44,6 +44,10 @@ class UserResponse(UserBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("balance", "lifetime_referral_earnings")
+    def serialize_decimal(self, value: Decimal) -> str:
+        return str(value)
 
 
 class TelegramAuthRequest(BaseModel):

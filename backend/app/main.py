@@ -147,13 +147,15 @@ async def lifespan(app: FastAPI):
     _now_local = datetime.now()
     _now_utc   = datetime.now(timezone.utc).replace(tzinfo=None)
     if abs((_now_local - _now_utc).total_seconds()) > 60:
-        logger.warning(
-            "Server clock does not appear to be in UTC (local=%s, utc=%s). "
-            "AUTO_GENERATE_HOUR_UTC=%d may fire at the wrong time.",
-            _now_local.strftime("%H:%M"),
-            _now_utc.strftime("%H:%M"),
-            AUTO_GENERATE_HOUR_UTC,
+        _tz_msg = (
+            f"Server is not running in UTC "
+            f"(local={_now_local.strftime('%H:%M')}, utc={_now_utc.strftime('%H:%M')}). "
+            f"Game scheduler AUTO_GENERATE_HOUR_UTC={AUTO_GENERATE_HOUR_UTC} will fire "
+            f"at the wrong local time. Set TZ=UTC in your environment."
         )
+        if settings.APP_ENV == "production":
+            raise RuntimeError(_tz_msg)
+        logger.warning(_tz_msg)
 
     await _ensure_superuser()
 

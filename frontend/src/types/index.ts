@@ -3,12 +3,12 @@ export interface User {
   email: string
   username: string
   full_name?: string
-  balance: number
+  balance: string  // Decimal serialized as string by backend; use Number(balance) for arithmetic
   is_active: boolean
   is_superuser: boolean
   ton_wallet_address: string | null
   referral_code?: string | null
-  lifetime_referral_earnings?: number
+  lifetime_referral_earnings?: string  // Decimal serialized as string
   created_at: string
 }
 
