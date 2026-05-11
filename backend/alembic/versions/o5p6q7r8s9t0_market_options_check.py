@@ -17,11 +17,19 @@ def upgrade() -> None:
     # instantly without a full table lock. New inserts/updates are enforced
     # immediately. Run VALIDATE CONSTRAINT later if you need to certify
     # historical rows too.
+    # Wrapped in a DO block: skips if constraint already exists (idempotent).
     op.execute("""
-        ALTER TABLE markets
-        ADD CONSTRAINT ck_markets_quiz_options_not_null
-        CHECK (tier IS NULL OR options IS NOT NULL)
-        NOT VALID
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ck_markets_quiz_options_not_null'
+            ) THEN
+                ALTER TABLE markets
+                ADD CONSTRAINT ck_markets_quiz_options_not_null
+                CHECK (tier IS NULL OR options IS NOT NULL)
+                NOT VALID;
+            END IF;
+        END $$
     """)
 
 
