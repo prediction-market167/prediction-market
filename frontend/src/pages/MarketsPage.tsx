@@ -130,7 +130,7 @@ export default function MarketsPage() {
   const { t } = useTranslation()
   const [activeTier, setActiveTier] = useState<string>('hard')
 
-  const { data: markets = [], isLoading } = useQuery({
+  const { data: markets = [], isLoading, isError, error } = useQuery({
     queryKey: ['markets', activeTier],
     queryFn: () => marketsApi.list({ tier: activeTier, status: 'open', limit: 50 }),
     refetchInterval: 30_000,
@@ -227,6 +227,12 @@ export default function MarketsPage() {
           <div className="text-5xl mb-4">🏆</div>
           <p className="text-ink-400 text-lg font-bold">{t('game.noMarkets')}</p>
           <p className="text-ink-700 text-sm mt-1">{t('game.noMarketsHint')}</p>
+          {isError && (
+            <p className="text-red-400 text-xs mt-3 px-4 break-all">
+              API error: {(error as any)?.message ?? String(error)}
+              {' | URL: '}{import.meta.env.VITE_API_URL || '(empty)'}
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
