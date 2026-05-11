@@ -12,7 +12,10 @@ down_revision = 'k1l2m3n4o5p6'
 branch_labels = None
 depends_on = None
 
-# Columns that must stay NOT NULL
+# Columns that must stay NOT NULL.
+# IMPORTANT: update this set whenever a new NOT NULL column is intentionally
+# added to the questions table, otherwise a future re-run of this migration
+# (or a copy of it) will silently drop that constraint.
 _REQUIRED = {
     'id', 'tier', 'order_idx', 'question_mn', 'options_mn',
     'correct_option_idx', 'is_used', 'status', 'translation_status',

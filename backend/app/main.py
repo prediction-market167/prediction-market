@@ -142,6 +142,19 @@ async def _ensure_superuser() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Warn early if the server clock is not UTC; the game scheduler uses UTC
+    # hour comparisons and will fire at the wrong local time otherwise.
+    _now_local = datetime.now()
+    _now_utc   = datetime.now(timezone.utc).replace(tzinfo=None)
+    if abs((_now_local - _now_utc).total_seconds()) > 60:
+        logger.warning(
+            "Server clock does not appear to be in UTC (local=%s, utc=%s). "
+            "AUTO_GENERATE_HOUR_UTC=%d may fire at the wrong time.",
+            _now_local.strftime("%H:%M"),
+            _now_utc.strftime("%H:%M"),
+            AUTO_GENERATE_HOUR_UTC,
+        )
+
     await _ensure_superuser()
 
     shutdown_event = asyncio.Event()

@@ -44,7 +44,8 @@ class Market(Base, TimestampMixin):
     no_probability: Mapped[Decimal] = mapped_column(Numeric(5, 4), default=Decimal("0.5000"))
     total_volume: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"))
 
-    # Quiz question data
+    # Quiz question data — options is None only for legacy non-quiz markets;
+    # quiz markets created by activate_question_for_tier always populate it.
     options: Mapped[dict | None] = mapped_column(JSON)  # {"mn": [...], "en": [...], "ru": [...], "hi": [...]}
     correct_option_idx: Mapped[int | None] = mapped_column(Integer)  # stored, hidden until revealed
     revealed_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True))

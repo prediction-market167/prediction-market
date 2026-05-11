@@ -81,7 +81,12 @@ async def get_weekly_leaderboard(
         .select_from(Bet)
         .join(Market, Bet.market_id == Market.id)
         .join(User, Bet.user_id == User.id)
-        .where(Market.tier == tier, Bet.status != BetStatus.CANCELLED, Market.close_date >= week_ago)
+        .where(
+            Market.tier == tier,
+            Bet.status != BetStatus.CANCELLED,
+            Market.close_date.isnot(None),
+            Market.close_date >= week_ago,
+        )
         .group_by(User.id, User.username)
         .order_by(contest_count_col.desc(), winnings_col.desc())
         .limit(3)
