@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -12,6 +13,18 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 GAME_SCHEDULER_INTERVAL = 30  # seconds between scheduler ticks
+
+# Arbitrary unique integers used as PostgreSQL advisory lock keys.
+# Only one app instance can hold each lock at a time, preventing
+# duplicate market reveals or activations across concurrent dynos.
+_LOCK_REVEAL   = 7001
+_LOCK_ACTIVATE = 7002
+
+
+async def _try_advisory_lock(db, lock_id: int) -> bool:
+    """Return True if this instance acquired the transaction-level advisory lock."""
+    result = await db.execute(text(f"SELECT pg_try_advisory_xact_lock({lock_id})"))
+    return bool(result.scalar())
 
 
 async def _get_system_creator_id() -> int | None:
@@ -30,12 +43,15 @@ async def _get_system_creator_id() -> int | None:
 AUTO_GENERATE_HOUR_UTC = 3   # run at 03:00 UTC every day
 
 
-async def _game_scheduler_loop() -> None:
+async def _game_scheduler_loop(shutdown: asyncio.Event) -> None:
     """
     Runs every GAME_SCHEDULER_INTERVAL seconds.
     - At minute 55: reveal stats or cancel markets with insufficient participants.
     - At minute 0-2: activate next question for each tier if not yet done this hour.
     - At AUTO_GENERATE_HOUR_UTC:00 — auto-generate 40 questions (10 per tier).
+
+    Uses PostgreSQL advisory locks so only one instance acts per tick when
+    multiple dynos are running.  Exits cleanly when `shutdown` is set.
     """
     from app.db.session import AsyncSessionLocal
     from app.core.game import reveal_or_cancel_open_markets, activate_all_tiers
@@ -45,7 +61,14 @@ async def _game_scheduler_loop() -> None:
     last_autogen_day: int   = -1
 
     while True:
-        await asyncio.sleep(GAME_SCHEDULER_INTERVAL)
+        # Sleep for the interval, but wake immediately on shutdown signal.
+        try:
+            await asyncio.wait_for(shutdown.wait(), timeout=GAME_SCHEDULER_INTERVAL)
+            logger.info("Game scheduler: shutdown signal received, exiting cleanly")
+            break
+        except asyncio.TimeoutError:
+            pass
+
         now = datetime.now(timezone.utc)
         current_minute = now.minute
         current_hour   = now.hour
@@ -54,29 +77,37 @@ async def _game_scheduler_loop() -> None:
         try:
             # :55 mark — reveal or cancel quiz markets
             if current_minute >= 55 and last_reveal_hour != current_hour:
-                logger.info("Game scheduler: running reveal/cancel for hour %s", current_hour)
-                async with AsyncSessionLocal() as db:
-                    await reveal_or_cancel_open_markets(db)
-                    await db.commit()
+                # Mark attempted immediately; prevents this instance from
+                # redundantly retrying if another instance holds the lock.
                 last_reveal_hour = current_hour
+                async with AsyncSessionLocal() as db:
+                    if await _try_advisory_lock(db, _LOCK_REVEAL):
+                        logger.info("Game scheduler: running reveal/cancel for hour %s", current_hour)
+                        await reveal_or_cancel_open_markets(db)
+                        await db.commit()
+                    else:
+                        logger.debug("Scheduler: reveal lock held by another instance, skipping")
 
             # :00 mark (minutes 0-2 to be safe with scheduler granularity)
             if current_minute <= 2 and last_activate_hour != current_hour:
                 creator_id = await _get_system_creator_id()
                 if creator_id:
-                    logger.info("Game scheduler: activating hourly questions for hour %s", current_hour)
+                    last_activate_hour = current_hour
                     async with AsyncSessionLocal() as db:
-                        await activate_all_tiers(db, creator_id)
-                        await db.commit()
-                last_activate_hour = current_hour
+                        if await _try_advisory_lock(db, _LOCK_ACTIVATE):
+                            logger.info("Game scheduler: activating hourly questions for hour %s", current_hour)
+                            await activate_all_tiers(db, creator_id)
+                            await db.commit()
+                        else:
+                            logger.debug("Scheduler: activate lock held by another instance, skipping")
 
             # Daily auto-generation of 40 questions at AUTO_GENERATE_HOUR_UTC
             if current_hour == AUTO_GENERATE_HOUR_UTC and current_minute <= 2 and last_autogen_day != current_day:
+                last_autogen_day = current_day
                 logger.info("Game scheduler: running daily question auto-generation")
                 from app.core.question_generate import generate_questions_scheduled
                 result = await generate_questions_scheduled(target_per_tier=10)
                 logger.info("Daily auto-generation result: %s", result)
-                last_autogen_day = current_day
 
         except Exception as exc:
             logger.error("Game scheduler error: %s", exc, exc_info=True)
@@ -113,7 +144,8 @@ async def _ensure_superuser() -> None:
 async def lifespan(app: FastAPI):
     await _ensure_superuser()
 
-    scheduler_task = asyncio.create_task(_game_scheduler_loop())
+    shutdown_event = asyncio.Event()
+    scheduler_task = asyncio.create_task(_game_scheduler_loop(shutdown_event))
     logger.info("Game scheduler started (interval=%ds)", GAME_SCHEDULER_INTERVAL)
 
     if settings.TELEGRAM_BOT_TOKEN:
@@ -124,11 +156,17 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    scheduler_task.cancel()
+    # Signal scheduler to stop and give it time to finish any in-flight DB work.
+    shutdown_event.set()
     try:
-        await scheduler_task
-    except asyncio.CancelledError:
-        pass
+        await asyncio.wait_for(scheduler_task, timeout=10.0)
+    except asyncio.TimeoutError:
+        logger.warning("Scheduler did not finish within 10 s; cancelling")
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
 
     if settings.TELEGRAM_BOT_TOKEN:
         from app.bot.application import get_application

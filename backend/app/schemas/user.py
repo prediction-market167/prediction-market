@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from decimal import Decimal
 from datetime import datetime
 
@@ -14,6 +14,8 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     full_name: str | None = None
     email: EmailStr | None = None
     ton_wallet_address: str | None = None

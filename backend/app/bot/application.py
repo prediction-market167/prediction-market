@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal
 
@@ -13,6 +14,21 @@ logger = logging.getLogger(__name__)
 _application: Application | None = None
 
 _OPEN_BTN = lambda: [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
+
+
+async def _bot_send(chat_id: int, text: str, **kwargs) -> None:
+    """Send a Telegram message, retrying up to 3 times on transient failure."""
+    bot = get_application().bot
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+            return
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)  # 1 s then 2 s
+    logger.warning("Telegram send failed after 3 attempts chat_id=%s: %s", chat_id, last_exc)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -149,15 +165,11 @@ async def send_winner_notification(telegram_id: int, rank: int, prize: int, mark
         f"You won *{prize:,} 💎* from quiz \\#{market_id}\\!\n"
         f"Your balance has been updated\\."
     )
-    try:
-        await get_application().bot.send_message(
-            chat_id=telegram_id,
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
-        )
-    except Exception as exc:
-        logger.warning("Winner notification failed telegram_id=%s: %s", telegram_id, exc)
+    await _bot_send(
+        telegram_id, text,
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
 
 
 async def send_refund_notification(telegram_id: int, amount: int, market_id: int) -> None:
@@ -165,15 +177,11 @@ async def send_refund_notification(telegram_id: int, amount: int, market_id: int
         f"💫 *Contest \\#{market_id} cancelled*\n\n"
         f"Not enough players joined\\. Your entry fee of *{amount} 💎* has been refunded to your balance\\."
     )
-    try:
-        await get_application().bot.send_message(
-            chat_id=telegram_id,
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
-        )
-    except Exception as exc:
-        logger.warning("Refund notification failed telegram_id=%s: %s", telegram_id, exc)
+    await _bot_send(
+        telegram_id, text,
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
 
 
 async def send_withdrawal_approved_notification(
@@ -185,15 +193,11 @@ async def send_withdrawal_approved_notification(
         f"Your withdrawal of *{ton_str} TON* has been sent to your wallet\\.\n\n"
         f"`{tx_hash[:16]}…`"
     )
-    try:
-        await get_application().bot.send_message(
-            chat_id=telegram_id,
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
-        )
-    except Exception as exc:
-        logger.warning("Withdrawal approval notification failed telegram_id=%s: %s", telegram_id, exc)
+    await _bot_send(
+        telegram_id, text,
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
 
 
 async def send_withdrawal_rejected_notification(
@@ -205,15 +209,11 @@ async def send_withdrawal_rejected_notification(
         f"Your withdrawal request was rejected\\. "
         f"*{gems_str} 💎 Gems* have been refunded to your balance\\."
     )
-    try:
-        await get_application().bot.send_message(
-            chat_id=telegram_id,
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
-        )
-    except Exception as exc:
-        logger.warning("Withdrawal rejection notification failed telegram_id=%s: %s", telegram_id, exc)
+    await _bot_send(
+        telegram_id, text,
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
 
 
 async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
