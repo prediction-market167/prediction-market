@@ -324,6 +324,36 @@ async def admin_update_user(
     return user
 
 
+class AddBalanceRequest(BaseModel):
+    amount: int
+
+
+@router.post("/users/{user_id}/add-balance", response_model=UserResponse)
+async def admin_add_balance(
+    user_id: int,
+    body: AddBalanceRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    balance_before = user.balance
+    user.balance += Decimal(body.amount)
+    db.add(Transaction(
+        user_id=user.id,
+        type=TransactionType.DEPOSIT,
+        amount=Decimal(body.amount),
+        balance_before=balance_before,
+        balance_after=user.balance,
+        description=f"Admin credit by @{current_user.username}",
+    ))
+    return user
+
+
 # ─── Platform Settings ────────────────────────────────────────────────────────
 
 class SettingsOut(BaseModel):

@@ -108,6 +108,9 @@ const adminApi = {
   updateUser: (id: number, payload: UserAdminUpdatePayload) =>
     apiClient.patch<User>(`/admin/users/${id}`, payload).then(r => r.data),
 
+  addBalance: (id: number, amount: number) =>
+    apiClient.post<User>(`/admin/users/${id}/add-balance`, { amount }).then(r => r.data),
+
   jackpotEligibleCount: (criteria: JackpotCriteria) =>
     apiClient.get<{ count: number }>('/admin/jackpot/eligible-count', { params: criteria }).then(r => r.data),
 

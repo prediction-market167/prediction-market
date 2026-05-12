@@ -331,6 +331,9 @@ function MarketsTab() {
 function UsersTab() {
   const { t } = useTranslation()
   const qc = useQueryClient()
+  const [addBalanceId, setAddBalanceId] = useState<number | null>(null)
+  const [addBalanceAmount, setAddBalanceAmount] = useState('100')
+
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin', 'users'],
     queryFn: adminApi.listUsers,
@@ -338,6 +341,10 @@ function UsersTab() {
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Parameters<typeof adminApi.updateUser>[1] }) => adminApi.updateUser(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  })
+  const addBalMut = useMutation({
+    mutationFn: ({ id, amount }: { id: number; amount: number }) => adminApi.addBalance(id, amount),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'users'] }); setAddBalanceId(null); setAddBalanceAmount('100') },
   })
   const HEADERS = [t('admin.users.headers.user'), t('admin.users.headers.balance'), t('admin.users.headers.active'), t('admin.users.headers.superuser'), t('admin.users.headers.joined'), t('admin.users.headers.actions')]
 
@@ -383,6 +390,37 @@ function UsersTab() {
                       <button onClick={() => updateMut.mutate({ id: u.id, data: { is_superuser: !u.is_superuser } })} className="p-1.5 rounded-lg text-ink-500 hover:text-brand-blue hover:bg-brand-blue/10 transition-colors" title={u.is_superuser ? t('admin.users.tooltips.removeAdmin') : t('admin.users.tooltips.makeAdmin')}>
                         <Users className="w-3.5 h-3.5" />
                       </button>
+                      {addBalanceId === u.id ? (
+                        <div className="flex items-center gap-1 ml-1">
+                          <input
+                            type="number"
+                            min={1}
+                            value={addBalanceAmount}
+                            onChange={e => setAddBalanceAmount(e.target.value)}
+                            className="w-16 px-1.5 py-0.5 text-xs rounded-lg bg-surface-700 border border-surface-500 text-ink-100 focus:outline-none focus:border-emerald-400"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') addBalMut.mutate({ id: u.id, amount: Number(addBalanceAmount) }); if (e.key === 'Escape') setAddBalanceId(null) }}
+                          />
+                          <button
+                            onClick={() => addBalMut.mutate({ id: u.id, amount: Number(addBalanceAmount) })}
+                            disabled={addBalMut.isPending || !addBalanceAmount || Number(addBalanceAmount) <= 0}
+                            className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-400/10 transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setAddBalanceId(null)} className="p-1 rounded-lg text-ink-600 hover:text-ink-300 transition-colors">
+                            <XCircle className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setAddBalanceId(u.id); setAddBalanceAmount('100') }}
+                          className="p-1.5 rounded-lg text-ink-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
+                          title="Add gems to balance"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
