@@ -2,7 +2,11 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
+from telegram import (
+    InlineKeyboardButton, InlineKeyboardMarkup,
+    KeyboardButton, ReplyKeyboardMarkup,
+    Update, WebAppInfo,
+)
 from telegram.ext import (
     Application, CommandHandler, ContextTypes,
     MessageHandler, PreCheckoutQueryHandler, filters,
@@ -14,6 +18,19 @@ logger = logging.getLogger(__name__)
 _application: Application | None = None
 
 _OPEN_BTN = lambda: [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
+
+SUPPORT_URL = "https://t.me/Quizstarcommunity"
+
+
+def _main_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[
+            KeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL)),
+            KeyboardButton("Support 💬"),
+        ]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 
 async def _bot_send(chat_id: int, text: str, **kwargs) -> None:
@@ -34,7 +51,14 @@ async def _bot_send(chat_id: int, text: str, **kwargs) -> None:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "⚡ Welcome to Quiz Star!\nAnswer fast, win big!",
-        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+        reply_markup=_main_keyboard(),
+    )
+
+
+async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        f"💬 Join our community:\n{SUPPORT_URL}",
+        reply_markup=_main_keyboard(),
     )
 
 
@@ -358,6 +382,7 @@ def get_application() -> Application:
         _application.add_handler(CommandHandler("profile", profile_command))
         _application.add_handler(CommandHandler("referral", referral_command))
         _application.add_handler(CommandHandler("terms", terms_command))
+        _application.add_handler(MessageHandler(filters.Text(["Support 💬"]), support_handler))
         _application.add_handler(PreCheckoutQueryHandler(pre_checkout_handler))
         _application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_handler))
     return _application
