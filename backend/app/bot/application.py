@@ -24,10 +24,7 @@ SUPPORT_URL = "https://t.me/Quizstarcommunity"
 
 def _main_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [
-            [KeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))],
-            [KeyboardButton("Support 💬")],
-        ],
+        [[KeyboardButton("Support 💬")]],
         resize_keyboard=False,
         is_persistent=True,
     )
