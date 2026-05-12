@@ -3,7 +3,7 @@ import type { Bet, BetSide } from '@/types'
 
 export const betsApi = {
   place: (data: { market_id: number; side: BetSide; amount: number }) =>
-    apiClient.post<Bet>('/bets', data).then((r) => r.data),
+    apiClient.post<Bet>('/bets/', data).then((r) => r.data),
 
   useTicket: (data: { market_id: number; ticket_id: number; side: BetSide; amount: number }) =>
     apiClient.post<Bet>('/bets/use-ticket', data).then((r) => r.data),
