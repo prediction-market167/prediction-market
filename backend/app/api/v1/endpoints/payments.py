@@ -17,6 +17,7 @@ from app.schemas.payment import (
 )
 from app.bot.application import get_application
 from app.core.config import settings
+from app.core.game import TIER_ENTRY_FEE
 
 router = APIRouter()
 
@@ -37,7 +38,10 @@ async def create_stars_invoice(
     if market.status != MarketStatus.OPEN:
         raise HTTPException(status_code=400, detail="Market is not open for betting")
 
-    stars_amount = math.ceil(float(req.amount))  # 1 credit = 1 Star
+    # Derive amount from market tier — ignore client-sent amount
+    from decimal import Decimal
+    bet_amount = TIER_ENTRY_FEE.get(market.tier or "free", Decimal("0"))
+    stars_amount = int(bet_amount)
     payload = str(uuid.uuid4())
 
     star_payment = StarPayment(
@@ -46,7 +50,7 @@ async def create_stars_invoice(
         market_id=market.id,
         side=req.side,
         stars_amount=stars_amount,
-        bet_amount=req.amount,
+        bet_amount=bet_amount,
     )
     db.add(star_payment)
     try:

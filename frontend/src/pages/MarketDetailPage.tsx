@@ -23,7 +23,7 @@ type PaymentMethod = 'balance' | 'ticket'
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 40  // 60 s total — covers Render cold-start (~30-60 s)
 const MIN_PARTICIPANTS = 10
-const BET_AMOUNT = 100
+const TIER_AMOUNTS: Record<string, number> = { free: 0, easy: 20, medium: 50, hard: 100 }
 
 const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
@@ -101,7 +101,8 @@ export default function MarketDetailPage() {
   ) ?? null
 
   const userBalance = Number(me?.balance ?? 0)
-  const canPayBalance = userBalance >= BET_AMOUNT
+  const betAmount = TIER_AMOUNTS[market?.tier ?? ''] ?? 100
+  const canPayBalance = userBalance >= betAmount
 
   const { data: depositInfo } = useQuery({
     queryKey: ['deposit-address'],
@@ -112,7 +113,6 @@ export default function MarketDetailPage() {
 
   const isQuiz = !!market?.tier
   const isFree = market?.tier === 'free'
-  const betAmount = isFree ? 0 : 100
   const isDarkPool = isQuiz && !isFree && market?.status === 'open' && !market?.is_revealed
 
   const lang = i18n.language.split('-')[0]
@@ -312,7 +312,7 @@ export default function MarketDetailPage() {
               <>
                 <h3 className="text-base font-black text-white mb-1">{t('payment.insufficientTitle')}</h3>
                 <p className="text-xs text-ink-500 mb-4">
-                  {t('payment.needGems', { amount: BET_AMOUNT, balance: userBalance.toLocaleString() })}
+                  {t('payment.needGems', { amount: betAmount, balance: userBalance.toLocaleString() })}
                 </p>
                 <p className="text-sm text-ink-300 mb-4">{t('payment.topUpPrompt')}</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -770,7 +770,7 @@ export default function MarketDetailPage() {
               </div>
               <h3 className="text-lg font-bold text-gradient-gold mb-1">{t('market.betPlaced')}</h3>
               <p className="text-sm text-ink-400 mb-1">
-                {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: BET_AMOUNT })}
+                {t('market.betDetails', { id: placedBetId, side: side.toUpperCase(), amount: betAmount })}
               </p>
               <button onClick={resetPayment} className="btn-primary text-sm px-6 py-2.5 mt-4">
                 {t('market.placeAnother')}

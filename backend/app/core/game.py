@@ -10,7 +10,14 @@ logger = logging.getLogger(__name__)
 
 MIN_PARTICIPANTS = 10
 REVEAL_AFTER_MINUTES = 55
-BET_AMOUNT = Decimal("100")
+BET_AMOUNT = Decimal("100")  # legacy fallback
+
+TIER_ENTRY_FEE: dict[str, Decimal] = {
+    "free": Decimal("0"),
+    "easy": Decimal("20"),
+    "medium": Decimal("50"),
+    "hard": Decimal("100"),
+}
 
 # Prize pool allocation (must sum to 1.0)
 WINNER_POOL_SHARE = Decimal("0.70")

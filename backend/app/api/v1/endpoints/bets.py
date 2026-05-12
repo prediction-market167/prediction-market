@@ -15,6 +15,7 @@ from app.models.jackpot import SystemFunds
 from app.models.referral_ticket import ReferralTicket
 from app.schemas.bet import BetCreate, BetResponse
 from app.core.rate_limit import check_bet_rate_limit
+from app.core.game import TIER_ENTRY_FEE
 
 
 class UseTicketRequest(BetCreate):
@@ -139,13 +140,10 @@ async def place_bet(
     if market.status != MarketStatus.OPEN:
         raise HTTPException(status_code=400, detail="Market is not open for betting")
 
-    # Free tier contests cost nothing — override whatever amount was sent
-    if market.tier == "free":
-        amount = Decimal("0")
-    else:
-        amount = bet_in.amount
-        if current_user.balance < amount:
-            raise HTTPException(status_code=400, detail="Insufficient balance")
+    # Enforce fixed entry fee per tier (ignore client-sent amount)
+    amount = TIER_ENTRY_FEE.get(market.tier or "free", Decimal("0"))
+    if amount > 0 and current_user.balance < amount:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
 
     prob = market.yes_probability if bet_in.side == BetSide.YES else market.no_probability
     potential_payout = amount / prob if prob else Decimal("0")
