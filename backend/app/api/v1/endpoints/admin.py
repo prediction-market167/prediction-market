@@ -251,6 +251,48 @@ async def admin_cancel_market(
     return r
 
 
+@router.post("/markets/repair-refunds")
+async def admin_repair_refunds(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superuser),
+):
+    """
+    One-time repair: find all CANCELLED markets that still have ACTIVE bets
+    (i.e. refund was never processed) and run the refund flow for each.
+    Returns a list of markets processed and how many bets were refunded.
+    """
+    # Find cancelled markets that have at least one ACTIVE bet
+    cancelled_with_active = await db.execute(
+        select(Market)
+        .where(Market.status == MarketStatus.CANCELLED)
+        .where(
+            Market.id.in_(
+                select(Bet.market_id)
+                .where(Bet.status == BetStatus.ACTIVE)
+                .distinct()
+            )
+        )
+        .order_by(Market.id)
+    )
+    markets = cancelled_with_active.scalars().all()
+
+    results = []
+    for market in markets:
+        try:
+            refunded = await _refund_market_bets(market, db)
+            logger.info("Repair refund: market %s → %d bets refunded", market.id, refunded)
+            results.append({"market_id": market.id, "refunded": refunded, "ok": True})
+        except Exception as exc:
+            logger.error("Repair refund failed for market %s: %s", market.id, exc)
+            results.append({"market_id": market.id, "refunded": 0, "ok": False, "error": str(exc)})
+
+    return {
+        "markets_processed": len(results),
+        "total_bets_refunded": sum(r["refunded"] for r in results),
+        "details": results,
+    }
+
+
 @router.get("/users", response_model=List[UserResponse])
 async def admin_list_users(
     db: AsyncSession = Depends(get_db),

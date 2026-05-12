@@ -185,6 +185,11 @@ function MarketsTab() {
     onSuccess: () => { invalidate(); setResolveMarket(null) },
   })
   const cancelMut = useMutation({ mutationFn: adminApi.cancelMarket, onSuccess: invalidate })
+  const [repairResult, setRepairResult] = useState<{ markets_processed: number; total_bets_refunded: number; details: { market_id: number; refunded: number; ok: boolean; error?: string }[] } | null>(null)
+  const repairMut = useMutation({
+    mutationFn: adminApi.repairRefunds,
+    onSuccess: (result) => { setRepairResult(result); invalidate() },
+  })
 
   const HEADERS = [
     t('admin.markets.headers.title'), t('admin.markets.headers.category'),
@@ -197,10 +202,49 @@ function MarketsTab() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <p className="text-sm text-ink-400">{t('admin.markets.count', { count: markets.length })}</p>
-        <button onClick={() => setShowCreate(true)} className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
-          <Plus className="w-4 h-4" /> {t('admin.markets.newMarket')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => repairMut.mutate()}
+            disabled={repairMut.isPending}
+            className="text-sm px-4 py-2 rounded-xl flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            title="Find cancelled markets with unrefunded bets and process refunds"
+          >
+            {repairMut.isPending
+              ? <><RefreshCw className="w-4 h-4 animate-spin" />Repairing…</>
+              : <><RefreshCw className="w-4 h-4" />Repair Refunds</>
+            }
+          </button>
+          <button onClick={() => setShowCreate(true)} className="btn-primary text-sm px-4 py-2 flex items-center gap-1.5">
+            <Plus className="w-4 h-4" /> {t('admin.markets.newMarket')}
+          </button>
+        </div>
       </div>
+
+      {repairResult && (
+        <div className="mb-4 rounded-xl px-4 py-3 bg-emerald-500/10 border border-emerald-500/30">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-emerald-400">
+                Repair complete — {repairResult.markets_processed} market{repairResult.markets_processed !== 1 ? 's' : ''} processed, {repairResult.total_bets_refunded} bet{repairResult.total_bets_refunded !== 1 ? 's' : ''} refunded
+              </span>
+            </div>
+            <button onClick={() => setRepairResult(null)} className="text-ink-600 hover:text-ink-300 transition-colors">
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+          {repairResult.details.length > 0 && (
+            <div className="space-y-1 mt-2">
+              {repairResult.details.map(d => (
+                <div key={d.market_id} className={`text-xs flex items-center gap-2 ${d.ok ? 'text-emerald-300' : 'text-no'}`}>
+                  {d.ok ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  Market #{d.market_id}: {d.ok ? `${d.refunded} bet${d.refunded !== 1 ? 's' : ''} refunded` : d.error}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {closeNotice && (
         <div className="mb-4 rounded-xl px-4 py-3 bg-brand-blue/10 border border-brand-blue/20 text-sm text-brand-blue">

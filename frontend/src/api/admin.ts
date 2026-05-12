@@ -99,6 +99,9 @@ const adminApi = {
   cancelMarket: (id: number) =>
     apiClient.delete<Market>(`/admin/markets/${id}`).then(r => r.data),
 
+  repairRefunds: () =>
+    apiClient.post<{ markets_processed: number; total_bets_refunded: number; details: { market_id: number; refunded: number; ok: boolean; error?: string }[] }>('/admin/markets/repair-refunds').then(r => r.data),
+
   listUsers: () =>
     apiClient.get<User[]>('/admin/users').then(r => r.data),
 
