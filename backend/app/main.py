@@ -219,6 +219,25 @@ async def lifespan(app: FastAPI):
         await bot_app.initialize()
         logger.info("Telegram bot initialized")
 
+        # Auto-register webhook on every startup so the secret_token is always
+        # in sync with TELEGRAM_WEBHOOK_SECRET without needing to re-run setup_bot.py.
+        if settings.WEBHOOK_URL:
+            try:
+                kwargs: dict = {
+                    "url": settings.WEBHOOK_URL,
+                    "allowed_updates": ["message", "callback_query", "pre_checkout_query"],
+                }
+                if settings.TELEGRAM_WEBHOOK_SECRET:
+                    kwargs["secret_token"] = settings.TELEGRAM_WEBHOOK_SECRET
+                await bot_app.bot.set_webhook(**kwargs)
+                logger.info("Telegram webhook registered: %s (secret=%s)",
+                            settings.WEBHOOK_URL,
+                            "yes" if settings.TELEGRAM_WEBHOOK_SECRET else "no")
+            except Exception as exc:
+                logger.error("Failed to register Telegram webhook: %s", exc)
+        else:
+            logger.warning("WEBHOOK_URL not set — skipping webhook registration")
+
     yield
 
     # Signal scheduler to stop and give it time to finish any in-flight DB work.
