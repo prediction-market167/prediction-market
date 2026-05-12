@@ -22,7 +22,7 @@ type PaymentMethod = 'balance' | 'stars' | 'ticket'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 40  // 60 s total — covers Render cold-start (~30-60 s)
-const MIN_PARTICIPANTS = 20
+const MIN_PARTICIPANTS = 10
 const BET_AMOUNT = 100
 
 const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']

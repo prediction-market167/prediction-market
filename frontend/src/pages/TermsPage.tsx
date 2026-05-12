@@ -59,12 +59,15 @@ export default function TermsPage() {
             <h2 className="text-base font-bold text-white mb-2">5. Prize Pool & Distribution</h2>
             <p>Of every paid entry fee:</p>
             <ul className="list-disc list-inside space-y-1 mt-1">
-              <li><span className="text-white font-semibold">50%</span> — Prize pool (split among top 5 fastest correct answers: 40 / 25 / 15 / 10 / 10%)</li>
+              <li><span className="text-white font-semibold">70%</span> — Prize pool (split among top 5 fastest correct answers: 40 / 25 / 15 / 10 / 10%)</li>
               <li><span className="text-white font-semibold">10%</span> — Jackpot fund (periodic random prize draw)</li>
-              <li><span className="text-white font-semibold">10%</span> — Referral commissions</li>
-              <li><span className="text-white font-semibold">10%</span> — Monthly bonus pool</li>
-              <li><span className="text-white font-semibold">20%</span> — Platform fee</li>
+              <li><span className="text-white font-semibold">10%</span> — Referral commissions (credited to the referrer who invited the player; if no referrer, this 10% is added to the platform fee)</li>
+              <li><span className="text-white font-semibold">10%</span> — Platform fee</li>
             </ul>
+            <p className="mt-2">
+              A minimum of <span className="text-white font-semibold">10 participants</span> is required for a paid contest to run.
+              If fewer than 10 players enter before the contest closes, all entry fees are fully refunded.
+            </p>
             <p className="mt-2">
               Prize distributions are calculated automatically by the platform. We reserve the right
               to adjust the fee structure with 7 days' notice posted in the App.

@@ -112,9 +112,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🟡 *Medium* — Higher prizes, tougher questions\n"
         "🔴 *Hard* — Maximum prizes, expert level\n\n"
         "🏆 *Prize Distribution:*\n"
-        "Top 5 fastest correct answers split 50% of the pool:\n"
+        "Top 5 fastest correct answers split 70% of the pool:\n"
         "1st → 40% · 2nd → 25% · 3rd → 15% · 4th → 10% · 5th → 10%\n"
-        "10% feeds the Jackpot · 10% Monthly Bonus pool\n\n"
+        "10% feeds the Jackpot · 10% Referral bonus\n\n"
         "📱 *Commands:*\n"
         "/profile — Your stats\n"
         "/referral — Your referral link\n"
@@ -297,25 +297,28 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
         db.add(bet_tx)
 
         # Credit SystemFunds ledgers — same split as balance-funded bets
+        # 70% prize · 10% jackpot · 10% referral (if referrer) · 10% platform
         if bet_amount > 0:
             from app.models.jackpot import SystemFunds
             funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
             funds = funds_res.scalar_one_or_none()
+            has_referrer = bool(user.referred_by_id)
             if funds:
-                funds.prize_pool_balance += bet_amount * Decimal("0.50")
+                funds.prize_pool_balance += bet_amount * Decimal("0.70")
                 funds.jackpot_balance += bet_amount * Decimal("0.10")
-                funds.referral_pool_balance += bet_amount * Decimal("0.10")
-                funds.monthly_bonus_balance += bet_amount * Decimal("0.10")
-                funds.admin_profit_balance += bet_amount * Decimal("0.20")
+                if has_referrer:
+                    funds.referral_pool_balance += bet_amount * Decimal("0.10")
+                    funds.admin_profit_balance += bet_amount * Decimal("0.10")
+                else:
+                    funds.admin_profit_balance += bet_amount * Decimal("0.20")
                 funds.total_revenue += bet_amount
             else:
                 db.add(SystemFunds(
                     id=1,
-                    prize_pool_balance=bet_amount * Decimal("0.50"),
+                    prize_pool_balance=bet_amount * Decimal("0.70"),
                     jackpot_balance=bet_amount * Decimal("0.10"),
-                    referral_pool_balance=bet_amount * Decimal("0.10"),
-                    monthly_bonus_balance=bet_amount * Decimal("0.10"),
-                    admin_profit_balance=bet_amount * Decimal("0.20"),
+                    referral_pool_balance=bet_amount * Decimal("0.10") if has_referrer else Decimal("0"),
+                    admin_profit_balance=bet_amount * Decimal("0.10") if has_referrer else bet_amount * Decimal("0.20"),
                     total_revenue=bet_amount,
                 ))
 

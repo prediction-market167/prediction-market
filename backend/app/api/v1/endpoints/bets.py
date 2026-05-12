@@ -175,24 +175,28 @@ async def place_bet(
     db.add(tx)
 
     # Credit separate ledgers for every paid entry
+    # Split: 70% prize pool · 10% jackpot · 10% referral (if referrer exists) · 10% platform
+    # When no referrer the referral 10% flows to platform instead (20% total platform)
     if amount > 0:
         funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
         funds = funds_res.scalar_one_or_none()
+        has_referrer = bool(current_user.referred_by_id)
         if funds:
-            funds.prize_pool_balance += amount * Decimal("0.50")
+            funds.prize_pool_balance += amount * Decimal("0.70")
             funds.jackpot_balance += amount * Decimal("0.10")
-            funds.referral_pool_balance += amount * Decimal("0.10")
-            funds.monthly_bonus_balance += amount * Decimal("0.10")
-            funds.admin_profit_balance += amount * Decimal("0.20")
+            if has_referrer:
+                funds.referral_pool_balance += amount * Decimal("0.10")
+                funds.admin_profit_balance += amount * Decimal("0.10")
+            else:
+                funds.admin_profit_balance += amount * Decimal("0.20")
             funds.total_revenue += amount
         else:
             db.add(SystemFunds(
                 id=1,
-                prize_pool_balance=amount * Decimal("0.50"),
+                prize_pool_balance=amount * Decimal("0.70"),
                 jackpot_balance=amount * Decimal("0.10"),
-                referral_pool_balance=amount * Decimal("0.10"),
-                monthly_bonus_balance=amount * Decimal("0.10"),
-                admin_profit_balance=amount * Decimal("0.20"),
+                referral_pool_balance=amount * Decimal("0.10") if has_referrer else Decimal("0"),
+                admin_profit_balance=amount * Decimal("0.10") if has_referrer else amount * Decimal("0.20"),
                 total_revenue=amount,
             ))
 

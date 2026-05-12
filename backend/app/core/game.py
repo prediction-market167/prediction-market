@@ -8,16 +8,15 @@ from sqlalchemy import select, func
 
 logger = logging.getLogger(__name__)
 
-MIN_PARTICIPANTS = 20
+MIN_PARTICIPANTS = 10
 REVEAL_AFTER_MINUTES = 55
 BET_AMOUNT = Decimal("100")
 
 # Prize pool allocation (must sum to 1.0)
-WINNER_POOL_SHARE = Decimal("0.50")
+WINNER_POOL_SHARE = Decimal("0.70")
 JACKPOT_SHARE = Decimal("0.10")
-MONTHLY_BONUS_SHARE = Decimal("0.10")
-# REFERRAL_SHARE = 0.10  — paid per-bet at placement time
-# ADMIN_PROFIT = 0.20    — retained by system (not distributed)
+# REFERRAL_SHARE = 0.10  — paid per-bet at placement time (→ platform if no referrer)
+# ADMIN_PROFIT = 0.10    — retained by system (not distributed)
 
 # Top-5 winner payouts (sum = 1.0 of winner pool)
 WINNER_RANKS = [
@@ -170,11 +169,14 @@ async def _cancel_market(market, db: AsyncSession) -> None:
 
         # Reverse ledger credits for this refunded bet
         if funds and bet.amount > 0:
-            funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - bet.amount * Decimal("0.50"))
+            has_referrer = bool(user.referred_by_id)
+            funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - bet.amount * Decimal("0.70"))
             funds.jackpot_balance = max(Decimal("0"), funds.jackpot_balance - bet.amount * Decimal("0.10"))
-            funds.referral_pool_balance = max(Decimal("0"), funds.referral_pool_balance - bet.amount * Decimal("0.10"))
-            funds.monthly_bonus_balance = max(Decimal("0"), funds.monthly_bonus_balance - bet.amount * Decimal("0.10"))
-            funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.20"))
+            if has_referrer:
+                funds.referral_pool_balance = max(Decimal("0"), funds.referral_pool_balance - bet.amount * Decimal("0.10"))
+                funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.10"))
+            else:
+                funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.20"))
 
         sp_res = await db.execute(select(StarPayment).where(StarPayment.bet_id == bet.id))
         sp = sp_res.scalar_one_or_none()
@@ -222,11 +224,10 @@ async def _cancel_market(market, db: AsyncSession) -> None:
 async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) -> None:
     """
     Settle winners using prize distribution:
-      50% winner pool → top 5 (40/25/15/10/10%)  ranked by correct answer + fastest time
+      70% winner pool → top 5 (40/25/15/10/10%)  ranked by correct answer + fastest time
       10% jackpot fund
-      10% monthly bonus
-      10% referral (paid per-bet at placement)
-      20% admin profit (retained)
+      10% referral (paid per-bet at placement; → platform if no referrer)
+      10% platform fee (retained)
     """
     from app.models.market import MarketStatus, MarketOutcome
     from app.models.bet import Bet, BetStatus
