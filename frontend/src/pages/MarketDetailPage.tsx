@@ -29,10 +29,10 @@ const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
 const OPTION_COLORS = [
-  { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
-  { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
-  { active: 'bg-brand-purple/15 border-brand-purple text-brand-purple', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
-  { active: 'bg-gold/15 border-gold text-gold', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
+  { active: 'bg-gold/15 border-gold text-gold shadow-glow-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold hover:text-gold hover:bg-gold/5' },
+  { active: 'bg-gold/15 border-gold text-gold shadow-glow-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold hover:text-gold hover:bg-gold/5' },
+  { active: 'bg-gold/15 border-gold text-gold shadow-glow-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold hover:text-gold hover:bg-gold/5' },
+  { active: 'bg-gold/15 border-gold text-gold shadow-glow-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold hover:text-gold hover:bg-gold/5' },
 ]
 
 function formatElapsed(seconds: number): string {
