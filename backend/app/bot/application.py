@@ -181,31 +181,85 @@ async def terms_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
-async def send_winner_notification(telegram_id: int, rank: int, prize: int, market_id: int) -> None:
+def _t(lang: str | None) -> dict:
+    """Localized notification strings."""
+    if lang == 'mn':
+        return dict(
+            cancel="⏰ Тэмцээн цуцлагдлаа!\n\nОролцогчдын тоо хүрэлцэхгүй байсан тул тэмцээн цуцлагдлаа.\n💎 {amount} Gems таны дансанд буцааллаа.\n\n⚡ Дахин оролцох уу?",
+            loss="😔 Энэ удаа болсонгүй!\n\nДараагийн тэмцээнд оролцоод ялаарай!",
+            loss_btn="⚡ Одоо тоглох",
+            payment="✅ Дансаа амжилттай цэнэглэлээ!\n\n💎 {amount} Gems таны дансанд орлоо.\nОдоо тэмцээнд оролцоорой!",
+            bet="⚡ Хариулт амжилттай илгээгдлээ!\n\n⏰ Үр дүн :55дахь минутад гарна. Амжилт хүсье! 🍀",
+            winner="{emoji} Та {rank}-р байр эзэллээ!\n\nТа quiz #{market_id}-аас {prize} 💎 хожлоо!\nТаны данс шинэчлэгдлээ.",
+        )
+    elif lang == 'ru':
+        return dict(
+            cancel="⏰ Конкурс отменён!\n\nНедостаточно участников — конкурс отменён.\n💎 {amount} Gems возвращены на ваш баланс.\n\n⚡ Попробуйте снова?",
+            loss="😔 В этот раз не повезло!\n\nУчаствуйте в следующем конкурсе и побеждайте!",
+            loss_btn="⚡ Играть сейчас",
+            payment="✅ Баланс успешно пополнен!\n\n💎 {amount} Gems зачислены.\nУчаствуйте в конкурсе прямо сейчас!",
+            bet="⚡ Ответ успешно отправлен!\n\n⏰ Результаты появятся в :55. Удачи! 🍀",
+            winner="{emoji} Вы заняли {rank}-е место!\n\nВы выиграли {prize} 💎 в quiz #{market_id}!\nБаланс обновлён.",
+        )
+    elif lang == 'hi':
+        return dict(
+            cancel="⏰ प्रतियोगिता रद्द हुई!\n\nपर्याप्त प्रतिभागी नहीं थे, इसलिए प्रतियोगिता रद्द हुई।\n💎 {amount} Gems वापस आ गए।\n\n⚡ फिर से खेलें?",
+            loss="😔 इस बार नहीं हुआ!\n\nअगली प्रतियोगिता में हिस्सा लें और जीतें!",
+            loss_btn="⚡ अभी खेलें",
+            payment="✅ बैलेंस सफलतापूर्वक जमा हुआ!\n\n💎 {amount} Gems आ गए।\nअभी प्रतियोगिता में हिस्सा लें!",
+            bet="⚡ उत्तर सफलतापूर्वक भेजा गया!\n\n⏰ परिणाम :55 पर आएंगे। शुभकामनाएं! 🍀",
+            winner="{emoji} आपने {rank}वां स्थान प्राप्त किया!\n\nआपने quiz #{market_id} से {prize} 💎 जीते!\nबैलेंस अपडेट हो गया।",
+        )
+    else:  # 'en' or unknown
+        return dict(
+            cancel="⏰ Contest cancelled!\n\nNot enough players joined, so the contest was cancelled.\n💎 {amount} Gems have been refunded to your balance.\n\n⚡ Want to play again?",
+            loss="😔 Not this time!\n\nJoin the next contest and win!",
+            loss_btn="⚡ Play now",
+            payment="✅ Balance topped up!\n\n💎 {amount} Gems added to your balance.\nJoin a contest now!",
+            bet="⚡ Answer submitted!\n\n⏰ Results appear at :55. Good luck! 🍀",
+            winner="{emoji} You placed #{rank}!\n\nYou won {prize} 💎 from quiz #{market_id}!\nYour balance has been updated.",
+        )
+
+
+async def send_winner_notification(telegram_id: int, rank: int, prize: int, market_id: int, lang: str | None = None) -> None:
     rank_emojis = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
     emoji = rank_emojis[rank - 1] if 1 <= rank <= 5 else "🏅"
-    text = (
-        f"{emoji} *You placed \\#{rank}\\!*\n\n"
-        f"You won *{prize:,} 💎* from quiz \\#{market_id}\\!\n"
-        f"Your balance has been updated\\."
-    )
+    text = _t(lang)['winner'].format(emoji=emoji, rank=rank, prize=f"{prize:,}", market_id=market_id)
     await _bot_send(
         telegram_id, text,
-        parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
     )
 
 
-async def send_refund_notification(telegram_id: int, amount: int, market_id: int) -> None:
-    text = (
-        f"💫 *Contest \\#{market_id} cancelled*\n\n"
-        f"Not enough players joined\\. Your entry fee of *{amount} 💎* has been refunded to your balance\\."
-    )
+async def send_refund_notification(telegram_id: int, amount: int, market_id: int, lang: str | None = None) -> None:
+    text = _t(lang)['cancel'].format(amount=amount)
     await _bot_send(
         telegram_id, text,
-        parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
     )
+
+
+async def send_loss_notification(telegram_id: int, lang: str | None = None) -> None:
+    strings = _t(lang)
+    await _bot_send(
+        telegram_id,
+        strings['loss'],
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton(strings['loss_btn'], web_app=WebAppInfo(url=settings.MINI_APP_URL))
+        ]]),
+    )
+
+
+async def send_payment_success_notification(telegram_id: int, amount: int, lang: str | None = None) -> None:
+    text = _t(lang)['payment'].format(amount=amount)
+    await _bot_send(
+        telegram_id, text,
+        reply_markup=InlineKeyboardMarkup(_OPEN_BTN()),
+    )
+
+
+async def send_bet_submitted_notification(telegram_id: int, lang: str | None = None) -> None:
+    await _bot_send(telegram_id, _t(lang)['bet'])
 
 
 async def send_withdrawal_approved_notification(
@@ -368,6 +422,16 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
                     await ref_db.commit()
 
         logger.info("Stars payment processed: payment_id=%s bet_id=%s", star_payment.id, bet.id)
+
+        # Notify user of successful payment
+        if user.telegram_id:
+            try:
+                await send_payment_success_notification(
+                    user.telegram_id, int(star_payment.stars_amount),
+                    lang=user.language_code,
+                )
+            except Exception as exc:
+                logger.warning("Payment success notification failed: %s", exc)
 
 
 def get_application() -> Application:

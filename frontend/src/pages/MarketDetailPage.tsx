@@ -158,6 +158,7 @@ export default function MarketDetailPage() {
           queryClient.invalidateQueries({ queryKey: ['market', id] })
           queryClient.invalidateQueries({ queryKey: ['my-bets'] })
           queryClient.invalidateQueries({ queryKey: ['my-bet-for-market', id] })
+          queryClient.invalidateQueries({ queryKey: ['me'] })
           return
         }
         if (result.status === 'failed') {

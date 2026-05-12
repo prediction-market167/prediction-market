@@ -208,6 +208,15 @@ async def place_bet(
 
     await db.flush()
     await db.refresh(bet)
+
+    # Send bet-submitted notification (fire-and-forget, only for quiz markets with a close time)
+    if market.tier and market.tier != "free" and current_user.telegram_id:
+        try:
+            from app.bot.application import send_bet_submitted_notification
+            await send_bet_submitted_notification(current_user.telegram_id, lang=current_user.language_code)
+        except Exception as exc:
+            logger.warning("Bet notification failed user=%s: %s", current_user.id, exc)
+
     return bet
 
 

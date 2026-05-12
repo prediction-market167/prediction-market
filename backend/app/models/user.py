@@ -24,6 +24,9 @@ class User(Base, TimestampMixin):
     blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     block_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Language preference (from Telegram: 'mn', 'ru', 'en', 'hi', …)
+    language_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     # Referral system
     referral_code: Mapped[str | None] = mapped_column(String(16), unique=True, index=True, nullable=True)
     referred_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)

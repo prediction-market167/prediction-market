@@ -35,6 +35,7 @@ class MarketResponse(MarketBase):
     no_probability: Decimal
     total_volume: Decimal
     participant_count: int = 0
+    refunded_count: int = 0
 
     # Quiz fields
     tier: str | None = None

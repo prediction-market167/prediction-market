@@ -117,6 +117,7 @@ async def telegram_auth(
             full_name=f"{first} {last}".strip() or None,
             referral_code=_make_referral_code(),
             referred_by_id=referred_by_id,
+            language_code=tg_user.get("language_code"),
         )
         db.add(user)
         await db.flush()
@@ -125,6 +126,10 @@ async def telegram_auth(
         # Ensure existing users get a referral_code if they don't have one
         if not user.referral_code:
             user.referral_code = _make_referral_code()
+        # Keep language up to date
+        lang = tg_user.get("language_code")
+        if lang and user.language_code != lang:
+            user.language_code = lang
 
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")

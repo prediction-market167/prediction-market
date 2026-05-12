@@ -16,7 +16,7 @@ import { Sparkles, X as XIcon } from 'lucide-react'
 
 type Tab = 'markets' | 'users' | 'questions' | 'jackpot' | 'notifications' | 'settings' | 'blocked' | 'financials' | 'withdrawals'
 
-const MIN_PARTICIPANTS = 20
+const MIN_PARTICIPANTS = 10
 
 const STATUS_BADGE: Record<string, string> = {
   open: 'bg-yes/20 text-yes border-yes/30',
@@ -231,7 +231,17 @@ function MarketsTab() {
                   <td className="py-3 pr-4">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_BADGE[m.status]}`}>{m.status}</span>
                   </td>
-                  <td className="py-3 pr-4"><ParticipantBadge count={m.participant_count} /></td>
+                  <td className="py-3 pr-4">
+                    <ParticipantBadge count={m.participant_count} />
+                    {m.status === 'cancelled' && (
+                      <div className={`flex items-center gap-1 text-xs mt-0.5 font-medium ${(m as any).refunded_count > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {(m as any).refunded_count > 0
+                          ? <><CheckCircle className="w-3 h-3" />Refunded</>
+                          : <><AlertTriangle className="w-3 h-3" />Not refunded</>
+                        }
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3 pr-4 text-ink-300">
                     <span className="flex items-center gap-1"><GemIcon className="w-3.5 h-3.5" />{Number(m.total_volume).toLocaleString()}</span>
                   </td>

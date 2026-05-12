@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-MIN_PARTICIPANTS = 20
+from app.core.game import MIN_PARTICIPANTS, TIER_ENTRY_FEE
 
 
 async def _count_participants(market_id: int, db: AsyncSession) -> int:
@@ -39,11 +39,14 @@ async def _count_participants(market_id: int, db: AsyncSession) -> int:
 
 
 async def _refund_market_bets(market: Market, db: AsyncSession) -> int:
-    """Refund all active bets on market. Returns number of bets refunded."""
+    """Refund all active bets on market, reverse ledger, send notifications. Returns count refunded."""
     bets_result = await db.execute(
         select(Bet).where(Bet.market_id == market.id, Bet.status == BetStatus.ACTIVE)
     )
     bets = bets_result.scalars().all()
+
+    funds_res = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
+    funds = funds_res.scalar_one_or_none()
 
     for bet in bets:
         user_result = await db.execute(select(User).where(User.id == bet.user_id))
@@ -64,6 +67,17 @@ async def _refund_market_bets(market: Market, db: AsyncSession) -> int:
         db.add(tx)
         bet.status = BetStatus.CANCELLED
 
+        # Reverse SystemFunds ledger credits
+        if funds and bet.amount > 0:
+            has_referrer = bool(user.referred_by_id)
+            funds.prize_pool_balance = max(Decimal("0"), funds.prize_pool_balance - bet.amount * Decimal("0.70"))
+            funds.jackpot_balance = max(Decimal("0"), funds.jackpot_balance - bet.amount * Decimal("0.10"))
+            if has_referrer:
+                funds.referral_pool_balance = max(Decimal("0"), funds.referral_pool_balance - bet.amount * Decimal("0.10"))
+                funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.10"))
+            else:
+                funds.admin_profit_balance = max(Decimal("0"), funds.admin_profit_balance - bet.amount * Decimal("0.20"))
+
         # Attempt Telegram Stars refund if applicable
         sp_result = await db.execute(
             select(StarPayment).where(StarPayment.bet_id == bet.id)
@@ -81,7 +95,30 @@ async def _refund_market_bets(market: Market, db: AsyncSession) -> int:
             except Exception as e:
                 logger.warning("Stars refund failed for star_payment %s: %s", star_payment.id, e)
 
+    # Send refund notifications after all DB work
+    for bet in bets:
+        if bet.amount > 0:
+            user_result = await db.execute(select(User).where(User.id == bet.user_id))
+            user = user_result.scalar_one()
+            if user.telegram_id:
+                try:
+                    from app.bot.application import send_refund_notification
+                    await send_refund_notification(
+                        user.telegram_id, int(bet.amount), market.id,
+                        lang=user.language_code,
+                    )
+                except Exception as e:
+                    logger.warning("Refund notification failed user=%d: %s", bet.user_id, e)
+
     return len(bets)
+
+
+async def _count_refunded(market_id: int, db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count(Bet.id))
+        .where(Bet.market_id == market_id, Bet.status == BetStatus.CANCELLED)
+    )
+    return result.scalar_one() or 0
 
 
 async def _markets_with_counts(markets: list, db: AsyncSession) -> List[MarketResponse]:
@@ -90,6 +127,8 @@ async def _markets_with_counts(markets: list, db: AsyncSession) -> List[MarketRe
         count = await _count_participants(market.id, db)
         r = MarketResponse.model_validate(market)
         r.participant_count = count
+        if market.status == MarketStatus.CANCELLED:
+            r.refunded_count = await _count_refunded(market.id, db)
         responses.append(r)
     return responses
 

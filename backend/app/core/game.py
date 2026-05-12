@@ -117,14 +117,14 @@ async def reveal_or_cancel_open_markets(db: AsyncSession) -> None:
     from app.models.market import Market, MarketStatus
     from app.models.bet import Bet, BetStatus
 
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=REVEAL_AFTER_MINUTES)
+    now = datetime.now(timezone.utc)
 
     result = await db.execute(
         select(Market).where(
             Market.status == MarketStatus.OPEN,
             Market.revealed_at.is_(None),
             Market.tier.isnot(None),
-            Market.created_at <= cutoff,
+            Market.close_date <= now,
         )
     )
     markets = result.scalars().all()
@@ -223,7 +223,10 @@ async def _cancel_market(market, db: AsyncSession) -> None:
             if refunded_user.telegram_id:
                 try:
                     from app.bot.application import send_refund_notification
-                    await send_refund_notification(refunded_user.telegram_id, int(bet.amount), market.id)
+                    await send_refund_notification(
+                        refunded_user.telegram_id, int(bet.amount), market.id,
+                        lang=refunded_user.language_code,
+                    )
                 except Exception as exc:
                     logger.warning("Refund notification error user=%d: %s", bet.user_id, exc)
 
@@ -324,7 +327,9 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
         market.id, len(correct_bets), len(top_winners),
     )
 
-    # Send Telegram notifications to top-5 winners (fire-and-forget)
+    # Send Telegram notifications (fire-and-forget)
+    winner_user_ids = {bet.user_id for bet in top_winners}
+
     for rank, bet in enumerate(top_winners):
         user_res = await db.execute(select(User).where(User.id == bet.user_id))
         winner_user = user_res.scalar_one()
@@ -332,9 +337,20 @@ async def _settle_quiz_market(market, participant_count: int, db: AsyncSession) 
             payout = int(bet.actual_payout or 0)
             try:
                 from app.bot.application import send_winner_notification
-                await send_winner_notification(winner_user.telegram_id, rank + 1, payout, market.id)
+                await send_winner_notification(winner_user.telegram_id, rank + 1, payout, market.id, lang=winner_user.language_code)
             except Exception as exc:
                 logger.warning("Winner notification error rank=%d: %s", rank + 1, exc)
+
+    all_losing_bets = [b for b in bets if b.user_id not in winner_user_ids]
+    for bet in all_losing_bets:
+        user_res = await db.execute(select(User).where(User.id == bet.user_id))
+        losing_user = user_res.scalar_one()
+        if losing_user.telegram_id:
+            try:
+                from app.bot.application import send_loss_notification
+                await send_loss_notification(losing_user.telegram_id, lang=losing_user.language_code)
+            except Exception as exc:
+                logger.warning("Loss notification error user=%d: %s", bet.user_id, exc)
 
 
 async def activate_all_tiers(db: AsyncSession, creator_id: int) -> None:
