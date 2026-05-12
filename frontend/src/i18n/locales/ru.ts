@@ -474,6 +474,10 @@ const ru = {
     payStarsEnter: 'Оплатить {{amount}} ⭐ и участвовать',
     sendTon: 'Отправьте TON на этот адрес:',
     tonNote: 'Гемы зачислятся после подтверждения блокчейном (~2–5 мин). Затем оплатите Гемами.',
+    insufficientTitle: 'Недостаточно средств',
+    topUpPrompt: 'Хотите пополнить баланс?',
+    topUpWithStars: 'Пополнить через Stars',
+    topUpWithTon: 'Пополнить через TON',
   },
   jackpot: {
     balance: 'Баланс джекпота',

@@ -470,6 +470,10 @@ const en = {
     payStarsEnter: 'Pay {{amount}} ⭐ & Enter',
     sendTon: 'Send TON to this address:',
     tonNote: 'Gems credited after blockchain confirmation (~2–5 min). Then use Gem Balance to enter.',
+    insufficientTitle: 'Insufficient Balance',
+    topUpPrompt: 'Would you like to top up?',
+    topUpWithStars: 'Top up with Stars',
+    topUpWithTon: 'Top up with TON',
   },
   jackpot: {
     balance: 'Jackpot Balance',

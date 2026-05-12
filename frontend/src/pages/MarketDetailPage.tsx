@@ -11,14 +11,14 @@ import { usersApi } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
 import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
-  Eye, EyeOff, Loader2, Wallet, Gift, Zap, Lock, Ticket,
+  Eye, EyeOff, Loader2, Wallet, Gift, Zap, ArrowLeft, Ticket,
 } from 'lucide-react'
 import GemIcon from '@/components/common/GemIcon'
 import type { BetSide, MarketResultEntry } from '@/types'
 import Confetti from '@/components/common/Confetti'
 
 type PaymentState = 'idle' | 'creating' | 'waiting' | 'verifying' | 'success' | 'cancelled' | 'error'
-type PaymentMethod = 'balance' | 'stars' | 'ticket'
+type PaymentMethod = 'balance' | 'ticket'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 40  // 60 s total — covers Render cold-start (~30-60 s)
@@ -29,10 +29,10 @@ const OPTION_TO_SIDE: BetSide[] = ['yes', 'no', 'opt2', 'opt3']
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
 const OPTION_COLORS = [
-  { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-emerald-500/40 hover:text-emerald-400/70' },
-  { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-rose-500/40 hover:text-rose-400/70' },
-  { active: 'bg-brand-purple/15 border-brand-purple text-brand-purple', inactive: 'border-surface-600 text-ink-400 hover:border-brand-purple/40' },
-  { active: 'bg-gold/15 border-gold text-gold', inactive: 'border-surface-600 text-ink-400 hover:border-gold/40' },
+  { active: 'bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-glow-yes', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
+  { active: 'bg-rose-500/15 border-rose-500 text-rose-400 shadow-glow-no', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
+  { active: 'bg-brand-purple/15 border-brand-purple text-brand-purple', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
+  { active: 'bg-gold/15 border-gold text-gold', inactive: 'border-surface-600 text-ink-400 hover:border-surface-500 hover:text-ink-200' },
 ]
 
 function formatElapsed(seconds: number): string {
@@ -52,10 +52,11 @@ export default function MarketDetailPage() {
 
   const [selectedOption, setSelectedOption] = useState<number>(0)
   const [paymentState, setPaymentState] = useState<PaymentState>('idle')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stars')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('balance')
   const [errorMsg, setErrorMsg] = useState('')
   const [placedBetId, setPlacedBetId] = useState<number | null>(null)
-  const [gemBuyMethod, setGemBuyMethod] = useState<'stars' | 'ton'>('stars')
+  const [showTopUpModal, setShowTopUpModal] = useState(false)
+  const [topUpMethod, setTopUpMethod] = useState<'choose' | 'ton'>('choose')
   const [tonCopied, setTonCopied] = useState(false)
   const submissionTimestampRef = useRef<number | null>(null)
 
@@ -105,7 +106,7 @@ export default function MarketDetailPage() {
   const { data: depositInfo } = useQuery({
     queryKey: ['deposit-address'],
     queryFn: usersApi.depositAddress,
-    enabled: !!token && !!market && paymentMethod === 'balance' && !canPayBalance && market?.tier !== 'free' && gemBuyMethod === 'ton',
+    enabled: !!token && showTopUpModal && topUpMethod === 'ton',
     staleTime: 5 * 60_000,
   })
 
@@ -253,13 +254,18 @@ export default function MarketDetailPage() {
     setTimeout(() => setTonCopied(false), 2000)
   }, [depositInfo])
 
+  const closeTopUpModal = useCallback(() => {
+    setShowTopUpModal(false)
+    setTopUpMethod('choose')
+  }, [])
+
   const handleSubmit = isFree
     ? handleBalanceBet
     : paymentMethod === 'ticket'
       ? handleTicketBet
-      : paymentMethod === 'balance'
+      : canPayBalance
         ? handleBalanceBet
-        : handleStarsBet
+        : () => setShowTopUpModal(true)
 
   const resetPayment = () => {
     setPaymentState('idle')
@@ -293,6 +299,77 @@ export default function MarketDetailPage() {
   return (
     <div className="max-w-2xl mx-auto animate-slide-up">
       <Confetti active={paymentState === 'success'} />
+
+      {/* Top-up Modal */}
+      {showTopUpModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={closeTopUpModal}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="relative w-full max-w-md bg-surface-800 rounded-t-2xl border border-surface-600/60 p-5 pb-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {topUpMethod === 'choose' ? (
+              <>
+                <h3 className="text-base font-black text-white mb-1">{t('payment.insufficientTitle')}</h3>
+                <p className="text-xs text-ink-500 mb-4">
+                  {t('payment.needGems', { amount: BET_AMOUNT, balance: userBalance.toLocaleString() })}
+                </p>
+                <p className="text-sm text-ink-300 mb-4">{t('payment.topUpPrompt')}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { closeTopUpModal(); handleStarsBet() }}
+                    disabled={isBusy}
+                    className="py-3 px-4 rounded-xl text-sm font-bold border-2 border-gold/50 bg-gold/10 text-gold flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    <Star className="w-4 h-4" />
+                    {t('payment.topUpWithStars')}
+                  </button>
+                  <button
+                    onClick={() => setTopUpMethod('ton')}
+                    className="py-3 px-4 rounded-xl text-sm font-bold border-2 border-blue-500/50 bg-blue-500/10 text-blue-400 flex items-center justify-center gap-2"
+                  >
+                    💎 {t('payment.topUpWithTon')}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setTopUpMethod('choose')}
+                  className="flex items-center gap-2 text-sm font-semibold text-ink-400 hover:text-ink-200 mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  {t('payment.topUpWithTon')}
+                </button>
+                {depositInfo ? (
+                  <>
+                    <p className="text-xs text-ink-500 mb-2">{t('payment.sendTon')}</p>
+                    <div className="bg-surface-700 rounded-lg p-3 flex items-start gap-2 mb-2">
+                      <p className="text-xs font-mono text-ink-200 flex-1 break-all leading-relaxed">{depositInfo.address}</p>
+                      <button
+                        onClick={handleCopyTon}
+                        className={`text-xs font-bold flex-shrink-0 mt-0.5 transition-colors ${tonCopied ? 'text-emerald-400' : 'text-gold'}`}
+                      >
+                        {tonCopied ? t('referral.copied') : t('referral.copy')}
+                      </button>
+                    </div>
+                    {depositInfo.memo && (
+                      <p className="text-xs text-ink-600 mb-2">
+                        Memo: <span className="font-mono text-ink-400">{depositInfo.memo}</span>
+                      </p>
+                    )}
+                    <p className="text-xs text-ink-600">{t('payment.tonNote')}</p>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <span className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin-slow" />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Market info card */}
       <div className="card mb-5">
@@ -511,24 +588,8 @@ export default function MarketDetailPage() {
               })()}
             </div>
           ) : (
-            /* Not yet registered: show question locked + payment */
+            /* Not yet registered: show answer picker + payment */
             <>
-              {/* Locked question placeholder */}
-              <div className="rounded-xl p-5 mb-5 bg-surface-700 border border-surface-600/60 relative overflow-hidden">
-                <div className="absolute inset-0 backdrop-blur-sm bg-surface-800/40 flex flex-col items-center justify-center gap-2 z-10 rounded-xl">
-                  <Lock className="w-8 h-8 text-ink-500" />
-                  <p className="text-sm font-bold text-ink-300">{t('game.lockedQuestion')}</p>
-                  <p className="text-xs text-ink-600 text-center px-4">{t('game.lockedHint')}</p>
-                </div>
-                <div className="blur-sm select-none pointer-events-none">
-                  <div className="h-4 bg-surface-600 rounded-full mb-3 w-full" />
-                  <div className="h-4 bg-surface-600 rounded-full mb-3 w-4/5" />
-                  {[0, 1, 2, 3].slice(0, market.tier === 'hard' ? 4 : 2).map(i => (
-                    <div key={i} className="h-10 bg-surface-600 rounded-xl mb-2 w-full" />
-                  ))}
-                </div>
-              </div>
-
               {/* Answer picker (for selection before paying) */}
               <h2 className="text-base font-bold text-ink-300 mb-3">{t('game.enterContest')}</h2>
               {localizedOptions ? (
@@ -591,51 +652,25 @@ export default function MarketDetailPage() {
                 </div>
               ) : (
                 <div className="mb-4">
-                  {matchingTicket && (
-                    <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/30">
-                      <Ticket className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      <span className="text-sm font-bold text-emerald-400">
-                        {t('referral.ticketAvailable', { tier: market!.tier!.toUpperCase() })}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
-                    {t('payment.chooseMethod')}
-                  </p>
-                  <div className={`grid gap-2 ${matchingTicket ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <button
-                      onClick={() => setPaymentMethod('balance')}
-                      disabled={isBusy || !canPayBalance}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                        paymentMethod === 'balance'
-                          ? 'bg-gold/10 border-gold/50 text-gold'
-                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Wallet className="w-3.5 h-3.5" />
-                        {t('payment.withBalance')}
-                      </div>
-                      <p className="text-xs font-normal opacity-70">
-                        {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
-                      </p>
-                    </button>
-                    <button
-                      onClick={() => setPaymentMethod('stars')}
-                      disabled={isBusy}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                        paymentMethod === 'stars'
-                          ? 'bg-gold/10 border-gold/50 text-gold'
-                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Star className="w-3.5 h-3.5" />
-                        {t('payment.withStars')}
-                      </div>
-                      <p className="text-xs font-normal opacity-70">Telegram Stars</p>
-                    </button>
-                    {matchingTicket && (
+                  {matchingTicket ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setPaymentMethod('balance')}
+                        disabled={isBusy}
+                        className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
+                          paymentMethod !== 'ticket'
+                            ? 'bg-gold/10 border-gold/50 text-gold'
+                            : 'border-surface-600 text-ink-400 hover:border-surface-500'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <Wallet className="w-3.5 h-3.5" />
+                          {t('payment.withBalance')}
+                        </div>
+                        <p className="text-xs font-normal opacity-70">
+                          {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
+                        </p>
+                      </button>
                       <button
                         onClick={() => setPaymentMethod('ticket')}
                         disabled={isBusy}
@@ -651,21 +686,16 @@ export default function MarketDetailPage() {
                         </div>
                         <p className="text-xs font-normal opacity-70">0 💎</p>
                       </button>
-                    )}
-                  </div>
-                  {paymentMethod === 'balance' && !canPayBalance && (
-                    <BuyGemsPanel
-                      betAmount={BET_AMOUNT}
-                      userBalance={userBalance}
-                      gemBuyMethod={gemBuyMethod}
-                      setGemBuyMethod={setGemBuyMethod}
-                      depositInfo={depositInfo}
-                      tonCopied={tonCopied}
-                      isBusy={isBusy}
-                      onPayStars={handleStarsBet}
-                      onCopyTon={handleCopyTon}
-                      t={t}
-                    />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 py-3 px-4 rounded-xl bg-surface-700 border border-surface-600">
+                      <Wallet className="w-4 h-4 text-ink-500 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-ink-300">{t('payment.withBalance')}</span>
+                      <span className="ml-auto text-sm font-bold text-gold flex items-center gap-1">
+                        <GemIcon className="w-3.5 h-3.5" />
+                        {userBalance.toLocaleString()}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -686,7 +716,6 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
-              {(isFree || paymentMethod !== 'balance' || canPayBalance) && (
               <button
                 onClick={handleSubmit}
                 disabled={isBusy}
@@ -701,8 +730,7 @@ export default function MarketDetailPage() {
                 {paymentState === 'verifying' && (
                   <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {
                     paymentMethod === 'ticket' ? t('referral.usingTicket')
-                    : isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance')
-                    : t('market.confirmingBet')
+                    : t('payment.confirmingBalance')
                   }</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
@@ -718,7 +746,6 @@ export default function MarketDetailPage() {
                   )
                 )}
               </button>
-              )}
               <p className="text-center text-xs text-ink-700 mt-3">{t('market.poweredBy')}</p>
             </>
           )}
@@ -815,58 +842,13 @@ export default function MarketDetailPage() {
                   <span className="text-xs text-ink-500 ml-auto flex items-center gap-0.5">0 <GemIcon className="w-3 h-3" /></span>
                 </div>
               ) : (
-                <div className="mb-4">
-                  <p className="text-xs text-ink-600 font-semibold uppercase tracking-wide mb-2">
-                    {t('payment.chooseMethod')}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setPaymentMethod('balance')}
-                      disabled={isBusy || !canPayBalance}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                        paymentMethod === 'balance'
-                          ? 'bg-gold/10 border-gold/50 text-gold'
-                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Wallet className="w-3.5 h-3.5" />
-                        {t('payment.withBalance')}
-                      </div>
-                      <p className="text-xs font-normal opacity-70">
-                        {t('payment.balanceSuffix', { balance: userBalance.toLocaleString() })}
-                      </p>
-                    </button>
-                    <button
-                      onClick={() => setPaymentMethod('stars')}
-                      disabled={isBusy}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-semibold border-2 transition-all text-left disabled:opacity-40 ${
-                        paymentMethod === 'stars'
-                          ? 'bg-gold/10 border-gold/50 text-gold'
-                          : 'border-surface-600 text-ink-400 hover:border-surface-500'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Star className="w-3.5 h-3.5" />
-                        {t('payment.withStars')}
-                      </div>
-                      <p className="text-xs font-normal opacity-70">Telegram Stars</p>
-                    </button>
-                  </div>
-                  {paymentMethod === 'balance' && !canPayBalance && (
-                    <BuyGemsPanel
-                      betAmount={BET_AMOUNT}
-                      userBalance={userBalance}
-                      gemBuyMethod={gemBuyMethod}
-                      setGemBuyMethod={setGemBuyMethod}
-                      depositInfo={depositInfo}
-                      tonCopied={tonCopied}
-                      isBusy={isBusy}
-                      onPayStars={handleStarsBet}
-                      onCopyTon={handleCopyTon}
-                      t={t}
-                    />
-                  )}
+                <div className="mb-4 flex items-center gap-3 py-3 px-4 rounded-xl bg-surface-700 border border-surface-600">
+                  <Wallet className="w-4 h-4 text-ink-500 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-ink-300">{t('payment.withBalance')}</span>
+                  <span className="ml-auto text-sm font-bold text-gold flex items-center gap-1">
+                    <GemIcon className="w-3.5 h-3.5" />
+                    {userBalance.toLocaleString()}
+                  </span>
                 </div>
               )}
 
@@ -893,7 +875,6 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
-              {(isFree || paymentMethod !== 'balance' || canPayBalance) && (
               <button
                 onClick={handleSubmit}
                 disabled={isBusy}
@@ -906,7 +887,7 @@ export default function MarketDetailPage() {
                   <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.waitingPayment')}</>
                 )}
                 {paymentState === 'verifying' && (
-                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {isFree || paymentMethod === 'balance' ? t('payment.confirmingBalance') : t('market.confirmingBet')}</>
+                  <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('payment.confirmingBalance')}</>
                 )}
                 {(paymentState === 'idle' || paymentState === 'error' || paymentState === 'cancelled') && (
                   isFree ? (
@@ -922,7 +903,6 @@ export default function MarketDetailPage() {
                   )
                 )}
               </button>
-              )}
 
               <p className="text-center text-xs text-ink-700 mt-3">{t('market.poweredBy')}</p>
             </>
@@ -933,106 +913,6 @@ export default function MarketDetailPage() {
       {/* Results leaderboard (resolved quiz markets) */}
       {isQuiz && (market.status === 'resolved' || market.status === 'cancelled') && results && (
         <ResultsLeaderboard results={results} localizedOptions={localizedOptions} t={t} />
-      )}
-    </div>
-  )
-}
-
-function BuyGemsPanel({
-  betAmount,
-  userBalance,
-  gemBuyMethod,
-  setGemBuyMethod,
-  depositInfo,
-  tonCopied,
-  isBusy,
-  onPayStars,
-  onCopyTon,
-  t,
-}: {
-  betAmount: number
-  userBalance: number
-  gemBuyMethod: 'stars' | 'ton'
-  setGemBuyMethod: (m: 'stars' | 'ton') => void
-  depositInfo: { address: string; memo: string } | undefined
-  tonCopied: boolean
-  isBusy: boolean
-  onPayStars: () => void
-  onCopyTon: () => void
-  t: ReturnType<typeof import('react-i18next').useTranslation>['t']
-}) {
-  return (
-    <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(15,6,40,0.6)' }}>
-      <div className="px-4 py-3 border-b border-surface-700">
-        <p className="text-sm font-bold text-gold flex items-center gap-1.5">
-          <GemIcon className="w-3.5 h-3.5" />
-          {t('payment.buyGems')}
-        </p>
-        <p className="text-xs text-ink-500 mt-0.5">
-          {t('payment.needGems', { amount: betAmount, balance: userBalance.toLocaleString() })}
-        </p>
-      </div>
-
-      <div className="flex">
-        {(['stars', 'ton'] as const).map((method) => (
-          <button
-            key={method}
-            onClick={() => setGemBuyMethod(method)}
-            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
-              gemBuyMethod === method
-                ? method === 'stars'
-                  ? 'text-gold border-gold'
-                  : 'text-blue-400 border-blue-400'
-                : 'text-ink-500 border-surface-700 hover:text-ink-300'
-            }`}
-          >
-            {method === 'stars' ? <><Star className="w-3.5 h-3.5" /> Stars</> : <>💎 TON</>}
-          </button>
-        ))}
-      </div>
-
-      {gemBuyMethod === 'stars' ? (
-        <div className="p-4">
-          <p className="text-xs text-ink-500 mb-3">{t('payment.starsNote')}</p>
-          <button
-            onClick={onPayStars}
-            disabled={isBusy}
-            className="w-full btn-primary py-3 text-sm font-black gap-2 disabled:opacity-40"
-          >
-            {isBusy ? (
-              <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
-            ) : (
-              <><Star className="w-4 h-4" /> {t('payment.payStarsEnter', { amount: betAmount })}</>
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className="p-4">
-          {depositInfo ? (
-            <>
-              <p className="text-xs text-ink-500 mb-2">{t('payment.sendTon')}</p>
-              <div className="bg-surface-700 rounded-lg p-3 flex items-start gap-2 mb-2">
-                <p className="text-xs font-mono text-ink-200 flex-1 break-all leading-relaxed">{depositInfo.address}</p>
-                <button
-                  onClick={onCopyTon}
-                  className={`text-xs font-bold flex-shrink-0 mt-0.5 transition-colors ${tonCopied ? 'text-emerald-400' : 'text-gold'}`}
-                >
-                  {tonCopied ? t('referral.copied') : t('referral.copy')}
-                </button>
-              </div>
-              {depositInfo.memo && (
-                <p className="text-xs text-ink-600 mb-2">
-                  Memo: <span className="font-mono text-ink-400">{depositInfo.memo}</span>
-                </p>
-              )}
-              <p className="text-xs text-ink-600">{t('payment.tonNote')}</p>
-            </>
-          ) : (
-            <div className="flex items-center justify-center py-5">
-              <span className="w-5 h-5 border-2 border-gold/30 border-t-gold rounded-full animate-spin-slow" />
-            </div>
-          )}
-        </div>
       )}
     </div>
   )

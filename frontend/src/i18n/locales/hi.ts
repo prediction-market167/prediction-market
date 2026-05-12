@@ -470,6 +470,10 @@ const hi = {
     payStarsEnter: '{{amount}} ⭐ दें और प्रवेश करें',
     sendTon: 'इस पते पर TON भेजें:',
     tonNote: 'ब्लॉकचेन पुष्टि के बाद Gems क्रेडिट होंगे (~2–5 मिनट)। फिर Gem Balance से प्रवेश करें।',
+    insufficientTitle: 'अपर्याप्त बैलेंस',
+    topUpPrompt: 'क्या आप टॉप अप करना चाहेंगे?',
+    topUpWithStars: 'Stars से टॉप अप करें',
+    topUpWithTon: 'TON से टॉप अप करें',
   },
   jackpot: {
     balance: 'जैकपॉट बैलेंस',
