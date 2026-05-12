@@ -2,6 +2,13 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List
 
+# These origins are always allowed regardless of the ALLOWED_ORIGINS env var.
+_REQUIRED_ORIGINS: List[str] = [
+    "http://localhost:3000",
+    "https://prediction-market-nine-blond.vercel.app",
+    "https://prediction-market-pphj.onrender.com",
+]
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "PredictionMarket"
@@ -37,11 +44,17 @@ class Settings(BaseSettings):
     # for distributed rate limiting. Currently unused; rate limiter is in-memory.
     REDIS_URL: str | None = None
 
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "https://prediction-market-nine-blond.vercel.app",
-        "https://prediction-market-pphj.onrender.com",
-    ]
+    ALLOWED_ORIGINS: List[str] = list(_REQUIRED_ORIGINS)
+
+    @field_validator("ALLOWED_ORIGINS", mode="after")
+    @classmethod
+    def merge_required_origins(cls, v: List[str]) -> List[str]:
+        # Guarantee required origins are present even if the env var overrides the default.
+        merged = list(v)
+        for origin in _REQUIRED_ORIGINS:
+            if origin not in merged:
+                merged.append(origin)
+        return merged
 
     DEPOSIT_TON_ADDRESS: str | None = None
     MASTER_ADMIN_WALLET: str | None = None

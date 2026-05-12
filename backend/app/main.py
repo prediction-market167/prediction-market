@@ -260,7 +260,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "app": settings.APP_NAME}
+    return {"status": "ok", "app": settings.APP_NAME, "allowed_origins": settings.ALLOWED_ORIGINS}
 
 
 @app.get("/debug/scheduler")
