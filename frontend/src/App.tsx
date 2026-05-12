@@ -12,6 +12,11 @@ import PrivacyPage from '@/pages/PrivacyPage'
 import TermsPage from '@/pages/TermsPage'
 import Layout from '@/components/common/Layout'
 
+function SupportRedirect() {
+  window.location.replace('https://t.me/Quizstarcommunity')
+  return null
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAppSelector((s) => s.auth)
   if (user && !user.is_superuser) return <Navigate to="/" replace />
@@ -42,6 +47,7 @@ export default function App() {
         </Route>
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/support" element={<SupportRedirect />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<Navigate to="/" replace />} />
       </Routes>

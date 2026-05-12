@@ -23,8 +23,9 @@ SUPPORT_URL = "https://t.me/Quizstarcommunity"
 
 
 def _main_keyboard() -> ReplyKeyboardMarkup:
+    support_url = f"{settings.MINI_APP_URL.rstrip('/')}/support"
     return ReplyKeyboardMarkup(
-        [[KeyboardButton("Support 💬")]],
+        [[KeyboardButton("Support 💬", web_app=WebAppInfo(url=support_url))]],
         resize_keyboard=False,
         is_persistent=True,
     )
