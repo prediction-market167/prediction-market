@@ -13,7 +13,13 @@ import TermsPage from '@/pages/TermsPage'
 import Layout from '@/components/common/Layout'
 
 function SupportRedirect() {
-  window.location.replace('https://t.me/Quizstarcommunity')
+  const tg = (window as any).Telegram?.WebApp
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink('https://t.me/Quizstarcommunity')
+    tg.close()
+  } else {
+    window.location.replace('https://t.me/Quizstarcommunity')
+  }
   return null
 }
 

@@ -19,15 +19,15 @@ _application: Application | None = None
 
 _OPEN_BTN = lambda: [[InlineKeyboardButton("Open Quiz Star ⚡", web_app=WebAppInfo(url=settings.MINI_APP_URL))]]
 
-SUPPORT_URL = "https://t.me/Quizstarcommunity"
 
 
 def _main_keyboard() -> ReplyKeyboardMarkup:
     support_url = f"{settings.MINI_APP_URL.rstrip('/')}/support"
     return ReplyKeyboardMarkup(
-        [[KeyboardButton("Support 💬", web_app=WebAppInfo(url=support_url))]],
+        [[KeyboardButton("💬 Support", web_app=WebAppInfo(url=support_url))]],
         resize_keyboard=False,
         is_persistent=True,
+        input_field_placeholder="Message",
     )
 
 
@@ -52,12 +52,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         reply_markup=_main_keyboard(),
     )
 
-
-async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        f"💬 Join our community:\n{SUPPORT_URL}",
-        reply_markup=_main_keyboard(),
-    )
 
 
 async def app_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -444,7 +438,6 @@ def get_application() -> Application:
         _application.add_handler(CommandHandler("profile", profile_command))
         _application.add_handler(CommandHandler("referral", referral_command))
         _application.add_handler(CommandHandler("terms", terms_command))
-        _application.add_handler(MessageHandler(filters.Text(["Support 💬"]), support_handler))
         _application.add_handler(PreCheckoutQueryHandler(pre_checkout_handler))
         _application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_handler))
     return _application
