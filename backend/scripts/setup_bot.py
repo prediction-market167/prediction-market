@@ -48,7 +48,7 @@ def call(method: str, **payload) -> dict:
 def main():
     # 1. Set webhook
     print(f"[1/3] Setting webhook: {WEBHOOK_URL}")
-    kwargs = {"url": WEBHOOK_URL, "allowed_updates": ["message", "callback_query"]}
+    kwargs = {"url": WEBHOOK_URL, "allowed_updates": ["message", "callback_query", "pre_checkout_query"]}
     if WEBHOOK_SECRET:
         kwargs["secret_token"] = WEBHOOK_SECRET
     call("setWebhook", **kwargs)
