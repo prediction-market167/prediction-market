@@ -469,6 +469,12 @@ const ru = {
     balanceSuffix: '({{balance}} 💎)',
     insufficientBalance: 'Недостаточно средств',
     confirmingBalance: 'Обрабатываем...',
+    buyGems: 'Купить Гемы',
+    needGems: 'Нужно {{amount}} 💎 · У вас {{balance}} 💎',
+    starsNote: '1 ⭐ = 1 💎 · Мгновенное зачисление и участие',
+    payStarsEnter: 'Оплатить {{amount}} ⭐ и участвовать',
+    sendTon: 'Отправьте TON на этот адрес:',
+    tonNote: 'Гемы зачислятся после подтверждения блокчейном (~2–5 мин). Затем оплатите Гемами.',
   },
   jackpot: {
     balance: 'Баланс джекпота',

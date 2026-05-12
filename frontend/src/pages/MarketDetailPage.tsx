@@ -7,6 +7,7 @@ import paymentsApi from '@/api/payments'
 import { betsApi } from '@/api/bets'
 import { authApi } from '@/api/auth'
 import referralApi from '@/api/referral'
+import { usersApi } from '@/api/users'
 import { useAppSelector } from '@/hooks/useStore'
 import {
   TrendingUp, Clock, CheckCircle, XCircle, Users, Star, Trophy,
@@ -54,6 +55,8 @@ export default function MarketDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('stars')
   const [errorMsg, setErrorMsg] = useState('')
   const [placedBetId, setPlacedBetId] = useState<number | null>(null)
+  const [gemBuyMethod, setGemBuyMethod] = useState<'stars' | 'ton'>('stars')
+  const [tonCopied, setTonCopied] = useState(false)
   const submissionTimestampRef = useRef<number | null>(null)
 
   const { data: market, isLoading } = useQuery({
@@ -98,6 +101,13 @@ export default function MarketDetailPage() {
 
   const userBalance = Number(me?.balance ?? 0)
   const canPayBalance = userBalance >= BET_AMOUNT
+
+  const { data: depositInfo } = useQuery({
+    queryKey: ['deposit-address'],
+    queryFn: usersApi.depositAddress,
+    enabled: !!token && !!market && paymentMethod === 'balance' && !canPayBalance && market?.tier !== 'free' && gemBuyMethod === 'ton',
+    staleTime: 5 * 60_000,
+  })
 
   const isQuiz = !!market?.tier
   const isFree = market?.tier === 'free'
@@ -235,6 +245,13 @@ export default function MarketDetailPage() {
       setPaymentState('error')
     }
   }, [id, side, matchingTicket, queryClient, t])
+
+  const handleCopyTon = useCallback(() => {
+    if (!depositInfo?.address) return
+    navigator.clipboard.writeText(depositInfo.address)
+    setTonCopied(true)
+    setTimeout(() => setTonCopied(false), 2000)
+  }, [depositInfo])
 
   const handleSubmit = isFree
     ? handleBalanceBet
@@ -637,7 +654,18 @@ export default function MarketDetailPage() {
                     )}
                   </div>
                   {paymentMethod === 'balance' && !canPayBalance && (
-                    <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
+                    <BuyGemsPanel
+                      betAmount={BET_AMOUNT}
+                      userBalance={userBalance}
+                      gemBuyMethod={gemBuyMethod}
+                      setGemBuyMethod={setGemBuyMethod}
+                      depositInfo={depositInfo}
+                      tonCopied={tonCopied}
+                      isBusy={isBusy}
+                      onPayStars={handleStarsBet}
+                      onCopyTon={handleCopyTon}
+                      t={t}
+                    />
                   )}
                 </div>
               )}
@@ -658,9 +686,10 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
+              {(isFree || paymentMethod !== 'balance' || canPayBalance) && (
               <button
                 onClick={handleSubmit}
-                disabled={isBusy || (!isFree && paymentMethod === 'balance' && !canPayBalance)}
+                disabled={isBusy}
                 className="w-full btn-primary py-3.5 text-base font-black disabled:opacity-40 disabled:cursor-not-allowed gap-2"
               >
                 {paymentState === 'creating' && (
@@ -689,6 +718,7 @@ export default function MarketDetailPage() {
                   )
                 )}
               </button>
+              )}
               <p className="text-center text-xs text-ink-700 mt-3">{t('market.poweredBy')}</p>
             </>
           )}
@@ -824,7 +854,18 @@ export default function MarketDetailPage() {
                     </button>
                   </div>
                   {paymentMethod === 'balance' && !canPayBalance && (
-                    <p className="text-xs text-no mt-1.5">{t('payment.insufficientBalance')}</p>
+                    <BuyGemsPanel
+                      betAmount={BET_AMOUNT}
+                      userBalance={userBalance}
+                      gemBuyMethod={gemBuyMethod}
+                      setGemBuyMethod={setGemBuyMethod}
+                      depositInfo={depositInfo}
+                      tonCopied={tonCopied}
+                      isBusy={isBusy}
+                      onPayStars={handleStarsBet}
+                      onCopyTon={handleCopyTon}
+                      t={t}
+                    />
                   )}
                 </div>
               )}
@@ -852,9 +893,10 @@ export default function MarketDetailPage() {
                 </div>
               )}
 
+              {(isFree || paymentMethod !== 'balance' || canPayBalance) && (
               <button
                 onClick={handleSubmit}
-                disabled={isBusy || (!isFree && paymentMethod === 'balance' && !canPayBalance)}
+                disabled={isBusy}
                 className="w-full btn-primary py-3.5 text-base font-black disabled:opacity-40 disabled:cursor-not-allowed gap-2"
               >
                 {paymentState === 'creating' && (
@@ -880,6 +922,7 @@ export default function MarketDetailPage() {
                   )
                 )}
               </button>
+              )}
 
               <p className="text-center text-xs text-ink-700 mt-3">{t('market.poweredBy')}</p>
             </>
@@ -890,6 +933,106 @@ export default function MarketDetailPage() {
       {/* Results leaderboard (resolved quiz markets) */}
       {isQuiz && (market.status === 'resolved' || market.status === 'cancelled') && results && (
         <ResultsLeaderboard results={results} localizedOptions={localizedOptions} t={t} />
+      )}
+    </div>
+  )
+}
+
+function BuyGemsPanel({
+  betAmount,
+  userBalance,
+  gemBuyMethod,
+  setGemBuyMethod,
+  depositInfo,
+  tonCopied,
+  isBusy,
+  onPayStars,
+  onCopyTon,
+  t,
+}: {
+  betAmount: number
+  userBalance: number
+  gemBuyMethod: 'stars' | 'ton'
+  setGemBuyMethod: (m: 'stars' | 'ton') => void
+  depositInfo: { address: string; memo: string } | undefined
+  tonCopied: boolean
+  isBusy: boolean
+  onPayStars: () => void
+  onCopyTon: () => void
+  t: ReturnType<typeof import('react-i18next').useTranslation>['t']
+}) {
+  return (
+    <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(15,6,40,0.6)' }}>
+      <div className="px-4 py-3 border-b border-surface-700">
+        <p className="text-sm font-bold text-gold flex items-center gap-1.5">
+          <GemIcon className="w-3.5 h-3.5" />
+          {t('payment.buyGems')}
+        </p>
+        <p className="text-xs text-ink-500 mt-0.5">
+          {t('payment.needGems', { amount: betAmount, balance: userBalance.toLocaleString() })}
+        </p>
+      </div>
+
+      <div className="flex">
+        {(['stars', 'ton'] as const).map((method) => (
+          <button
+            key={method}
+            onClick={() => setGemBuyMethod(method)}
+            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+              gemBuyMethod === method
+                ? method === 'stars'
+                  ? 'text-gold border-gold'
+                  : 'text-blue-400 border-blue-400'
+                : 'text-ink-500 border-surface-700 hover:text-ink-300'
+            }`}
+          >
+            {method === 'stars' ? <><Star className="w-3.5 h-3.5" /> Stars</> : <>💎 TON</>}
+          </button>
+        ))}
+      </div>
+
+      {gemBuyMethod === 'stars' ? (
+        <div className="p-4">
+          <p className="text-xs text-ink-500 mb-3">{t('payment.starsNote')}</p>
+          <button
+            onClick={onPayStars}
+            disabled={isBusy}
+            className="w-full btn-primary py-3 text-sm font-black gap-2 disabled:opacity-40"
+          >
+            {isBusy ? (
+              <><span className="w-4 h-4 border-2 border-surface-900/30 border-t-surface-900 rounded-full animate-spin-slow" /> {t('market.creatingInvoice')}</>
+            ) : (
+              <><Star className="w-4 h-4" /> {t('payment.payStarsEnter', { amount: betAmount })}</>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="p-4">
+          {depositInfo ? (
+            <>
+              <p className="text-xs text-ink-500 mb-2">{t('payment.sendTon')}</p>
+              <div className="bg-surface-700 rounded-lg p-3 flex items-start gap-2 mb-2">
+                <p className="text-xs font-mono text-ink-200 flex-1 break-all leading-relaxed">{depositInfo.address}</p>
+                <button
+                  onClick={onCopyTon}
+                  className={`text-xs font-bold flex-shrink-0 mt-0.5 transition-colors ${tonCopied ? 'text-emerald-400' : 'text-gold'}`}
+                >
+                  {tonCopied ? t('referral.copied') : t('referral.copy')}
+                </button>
+              </div>
+              {depositInfo.memo && (
+                <p className="text-xs text-ink-600 mb-2">
+                  Memo: <span className="font-mono text-ink-400">{depositInfo.memo}</span>
+                </p>
+              )}
+              <p className="text-xs text-ink-600">{t('payment.tonNote')}</p>
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-5">
+              <span className="w-5 h-5 border-2 border-gold/30 border-t-gold rounded-full animate-spin-slow" />
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

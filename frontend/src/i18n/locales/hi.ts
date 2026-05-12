@@ -465,6 +465,12 @@ const hi = {
     balanceSuffix: '({{balance}} 💎)',
     insufficientBalance: 'पर्याप्त बैलेंस नहीं',
     confirmingBalance: 'प्रोसेस हो रहा है...',
+    buyGems: 'Gems खरीदें',
+    needGems: '{{amount}} 💎 चाहिए · आपके पास {{balance}} 💎 है',
+    starsNote: '1 ⭐ = 1 💎 · तुरंत क्रेडिट और प्रवेश',
+    payStarsEnter: '{{amount}} ⭐ दें और प्रवेश करें',
+    sendTon: 'इस पते पर TON भेजें:',
+    tonNote: 'ब्लॉकचेन पुष्टि के बाद Gems क्रेडिट होंगे (~2–5 मिनट)। फिर Gem Balance से प्रवेश करें।',
   },
   jackpot: {
     balance: 'जैकपॉट बैलेंस',

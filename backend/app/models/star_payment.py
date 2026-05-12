@@ -20,7 +20,10 @@ class StarPayment(Base, TimestampMixin):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"), nullable=False)
-    side: Mapped[BetSide] = mapped_column(Enum(BetSide), nullable=False)
+    side: Mapped[BetSide] = mapped_column(
+        Enum(BetSide, name="betside", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False
+    )
 
     stars_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     bet_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)

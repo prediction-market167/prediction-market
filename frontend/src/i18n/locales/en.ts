@@ -465,6 +465,12 @@ const en = {
     balanceSuffix: '({{balance}} 💎)',
     insufficientBalance: 'Not enough balance',
     confirmingBalance: 'Processing...',
+    buyGems: 'Buy Gems',
+    needGems: 'Need {{amount}} 💎 · You have {{balance}} 💎',
+    starsNote: '1 ⭐ = 1 💎 · Instantly credited and entered',
+    payStarsEnter: 'Pay {{amount}} ⭐ & Enter',
+    sendTon: 'Send TON to this address:',
+    tonNote: 'Gems credited after blockchain confirmation (~2–5 min). Then use Gem Balance to enter.',
   },
   jackpot: {
     balance: 'Jackpot Balance',
