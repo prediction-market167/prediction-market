@@ -156,6 +156,8 @@ async def place_bet(
     main_used = amount - bonus_used
     current_user.bonus_balance -= bonus_used
     current_user.balance -= main_used
+    if main_used > 0:
+        current_user.has_paid_entry = True
     market.total_volume += amount
 
     bet = Bet(

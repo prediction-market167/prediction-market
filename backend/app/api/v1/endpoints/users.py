@@ -96,6 +96,11 @@ async def withdraw(
             detail=f"Minimum withdrawal is {MIN_WITHDRAWAL_GEMS} Gems",
         )
     wallet = _validate_ton_address(body.wallet_address)
+    if current_user.airdrop_claimed and not current_user.has_paid_entry:
+        raise HTTPException(
+            status_code=400,
+            detail="paid_entry_required",
+        )
     if current_user.balance < Decimal(body.amount_gems):
         raise HTTPException(status_code=400, detail="Insufficient balance (bonus credits cannot be withdrawn)")
 

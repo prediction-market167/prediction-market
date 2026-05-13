@@ -18,6 +18,7 @@ class User(Base, TimestampMixin):
     balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"))
     bonus_balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"), nullable=False)
     airdrop_claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_paid_entry: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 

@@ -107,8 +107,12 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['my-withdrawals'] })
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.detail ?? null
-      setWithdrawError(msg)
+      const detail = err?.response?.data?.detail ?? null
+      if (detail === 'paid_entry_required') {
+        setWithdrawError('⭐ Та жинхэнэ Stars-аар нэг удаа тоглоно уу. Bonus кредитийг гаргахын өмнө Stars төлбөртэй тэмцээнд оролцох шаардлагатай.')
+      } else {
+        setWithdrawError(detail)
+      }
     },
   })
 

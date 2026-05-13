@@ -1473,6 +1473,7 @@ function FinancialsTab() {
   ]
   const airdropClaimed = data?.airdrop_claimed_count ?? 0
   const airdropLimit = data?.airdrop_limit ?? 100
+  const minWithdrawal = data?.min_withdrawal_gems ?? 1000
 
   return (
     <div className="space-y-5">
@@ -1505,7 +1506,17 @@ function FinancialsTab() {
             style={{ width: `${Math.min(100, (airdropClaimed / airdropLimit) * 100)}%` }}
           />
         </div>
-        <p className="text-xs text-ink-600 mt-1">{airdropLimit - airdropClaimed} slots remaining · 500💎 each</p>
+        <p className="text-xs text-ink-600 mt-1">{airdropLimit - airdropClaimed} slots remaining · 500💎 each · requires 1 paid Stars entry to withdraw</p>
+      </div>
+
+      {/* Withdrawal rules */}
+      <div className="rounded-xl px-4 py-3 bg-surface-700 border border-surface-600 flex items-center gap-3">
+        <ArrowDownToLine className="w-4 h-4 text-ink-500 flex-shrink-0" />
+        <p className="text-sm text-ink-400">
+          Min withdrawal: <span className="text-ink-100 font-semibold">{minWithdrawal.toLocaleString()} 💎</span>
+          <span className="mx-2 text-ink-700">·</span>
+          Airdrop users must complete 1 paid Stars entry before withdrawing
+        </p>
       </div>
 
       {/* Ledger cards grid */}

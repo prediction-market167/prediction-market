@@ -485,6 +485,7 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
         star_payment.status = StarPaymentStatus.PAID
         star_payment.telegram_charge_id = telegram_charge_id
         star_payment.bet_id = bet.id
+        user.has_paid_entry = True
 
         await db.commit()
 

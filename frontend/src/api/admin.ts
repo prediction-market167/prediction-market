@@ -66,6 +66,7 @@ export interface FinancialData {
   master_wallet_configured: boolean
   airdrop_claimed_count: number
   airdrop_limit: number
+  min_withdrawal_gems: number
 }
 
 export interface AdminWithdrawal {

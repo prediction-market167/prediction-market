@@ -647,6 +647,7 @@ class FinancialsOut(BaseModel):
     master_wallet_configured: bool
     airdrop_claimed_count: int
     airdrop_limit: int
+    min_withdrawal_gems: int
 
 
 @router.get("/financials", response_model=FinancialsOut)
@@ -672,6 +673,7 @@ async def get_financials(
         master_wallet_configured=bool(settings.MASTER_ADMIN_WALLET),
         airdrop_claimed_count=airdrop_count,
         airdrop_limit=AIRDROP_LIMIT,
+        min_withdrawal_gems=1000,
     )
 
 
