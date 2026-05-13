@@ -89,6 +89,10 @@ async def _game_scheduler_loop(shutdown: asyncio.Event) -> None:
     last_reveal_hour: int   = -1
     last_activate_hour: int = -1
     last_autogen_day: int   = -1
+    # Channel posts — UTC hours (UTC+8 schedule: 09:00=01, 13:00=05, 18:00=10)
+    last_channel_morning: int   = -1
+    last_channel_afternoon: int = -1
+    last_channel_evening: int   = -1
 
     while True:
         # Sleep for the interval, but wake immediately on shutdown signal.
@@ -131,6 +135,19 @@ async def _game_scheduler_loop(shutdown: asyncio.Event) -> None:
                         else:
                             last_activate_hour = current_hour  # lock held — no need to retry
                             logger.debug("Scheduler: activate lock held by another instance, skipping")
+
+            # Channel posts (UTC+8 → UTC): morning 01:00, afternoon 05:00, evening 10:00
+            if settings.TELEGRAM_BOT_TOKEN:
+                from app.bot.application import send_channel_post
+                if current_hour == 1 and last_channel_morning != current_day:
+                    last_channel_morning = current_day
+                    await send_channel_post("morning")
+                if current_hour == 5 and last_channel_afternoon != current_day:
+                    last_channel_afternoon = current_day
+                    await send_channel_post("afternoon")
+                if current_hour == 10 and last_channel_evening != current_day:
+                    last_channel_evening = current_day
+                    await send_channel_post("evening")
 
             # Daily auto-generation of 40 questions at AUTO_GENERATE_HOUR_UTC
             if current_hour == AUTO_GENERATE_HOUR_UTC and current_minute <= 2 and last_autogen_day != current_day:

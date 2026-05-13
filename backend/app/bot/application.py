@@ -254,6 +254,43 @@ async def send_bet_submitted_notification(telegram_id: int, lang: str | None = N
     await _bot_send(telegram_id, _t(lang)['bet'])
 
 
+CHANNEL_ID = "@quizstarlive"
+
+CHANNEL_POSTS = {
+    "morning": (
+        "🌅 Good morning!\n"
+        "⚡ Ready for today's Quiz Star contests?\n"
+        "💎 2 contests today — 13:00 & 18:00\n"
+        "🤝 Invite friends and earn 10% commission for life!\n"
+        "👉 t.me/predictmarketa_bot/quizstar"
+    ),
+    "afternoon": (
+        "⚡ Afternoon contest is LIVE!\n"
+        "🧠 Test your knowledge and win TON!\n"
+        "🎯 Choose your level: Easy / Medium / Hard\n"
+        "⏰ Limited time — answer fast!\n"
+        "👉 t.me/predictmarketa_bot/quizstar"
+    ),
+    "evening": (
+        "🌆 Evening contest has started!\n"
+        "💰 Winners take real TON prizes!\n"
+        "🤝 Invite a friend — earn 10% of every entry they make, forever!\n"
+        "👉 t.me/predictmarketa_bot/quizstar"
+    ),
+}
+
+
+async def send_channel_post(key: str) -> None:
+    text = CHANNEL_POSTS.get(key)
+    if not text:
+        return
+    try:
+        await get_application().bot.send_message(chat_id=CHANNEL_ID, text=text)
+        logger.info("Channel post sent: %s", key)
+    except Exception as exc:
+        logger.error("Channel post failed (%s): %s", key, exc)
+
+
 async def send_withdrawal_approved_notification(
     telegram_id: int, ton_amount: float, tx_hash: str
 ) -> None:
