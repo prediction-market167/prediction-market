@@ -16,6 +16,8 @@ class User(Base, TimestampMixin):
     full_name: Mapped[str | None] = mapped_column(String(100))
     ton_wallet_address: Mapped[str | None] = mapped_column(String(66), unique=True, index=True, nullable=True)
     balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"))
+    bonus_balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0.00"), nullable=False)
+    airdrop_claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 

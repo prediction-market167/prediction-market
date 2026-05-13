@@ -142,14 +142,20 @@ async def place_bet(
 
     # Enforce fixed entry fee per tier (ignore client-sent amount)
     amount = TIER_ENTRY_FEE.get(market.tier or "free", Decimal("0"))
-    if amount > 0 and current_user.balance < amount:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+    if amount > 0:
+        total_available = current_user.balance + current_user.bonus_balance
+        if total_available < amount:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
 
     prob = market.yes_probability if bet_in.side == BetSide.YES else market.no_probability
     potential_payout = amount / prob if prob else Decimal("0")
 
+    # Deduct from bonus_balance first, then main balance
     balance_before = current_user.balance
-    current_user.balance -= amount
+    bonus_used = min(amount, current_user.bonus_balance)
+    main_used = amount - bonus_used
+    current_user.bonus_balance -= bonus_used
+    current_user.balance -= main_used
     market.total_volume += amount
 
     bet = Bet(

@@ -1471,6 +1471,8 @@ function FinancialsTab() {
     { label: t('admin.financials.monthlyBonus'), value: data?.monthly_bonus_balance ?? 0, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30' },
     { label: t('admin.financials.adminProfit'), value: data?.admin_profit_balance ?? 0, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   ]
+  const airdropClaimed = data?.airdrop_claimed_count ?? 0
+  const airdropLimit = data?.airdrop_limit ?? 100
 
   return (
     <div className="space-y-5">
@@ -1488,6 +1490,22 @@ function FinancialsTab() {
         <p className={`text-sm font-semibold ${data?.master_wallet_configured ? 'text-yes' : 'text-no'}`}>
           {data?.master_wallet_configured ? t('admin.financials.walletConfigured') : t('admin.financials.walletMissing')}
         </p>
+      </div>
+
+      {/* Airdrop progress */}
+      <div className="rounded-2xl p-5 border bg-pink-500/10 border-pink-500/30">
+        <p className="text-xs font-semibold text-ink-500 uppercase tracking-widest mb-2">🎁 Airdrop</p>
+        <div className="flex items-end gap-2 mb-2">
+          <p className="text-2xl font-black text-pink-400">{airdropClaimed}</p>
+          <p className="text-sm text-ink-500 mb-0.5">/ {airdropLimit} claimed</p>
+        </div>
+        <div className="w-full bg-surface-700 rounded-full h-2">
+          <div
+            className="bg-pink-400 h-2 rounded-full transition-all"
+            style={{ width: `${Math.min(100, (airdropClaimed / airdropLimit) * 100)}%` }}
+          />
+        </div>
+        <p className="text-xs text-ink-600 mt-1">{airdropLimit - airdropClaimed} slots remaining · 500💎 each</p>
       </div>
 
       {/* Ledger cards grid */}

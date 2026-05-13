@@ -46,11 +46,61 @@ async def _bot_send(chat_id: int, text: str, **kwargs) -> None:
     logger.warning("Telegram send failed after 3 attempts chat_id=%s: %s", chat_id, last_exc)
 
 
+AIRDROP_AMOUNT = 500
+AIRDROP_LIMIT = 100
+
+
+async def _try_grant_airdrop(telegram_id: int) -> bool:
+    """Grant 500 bonus_balance to the first 100 users. Returns True if granted."""
+    from sqlalchemy import select, func
+    from app.db.session import AsyncSessionLocal
+    from app.models.user import User
+    from app.models.transaction import Transaction, TransactionType
+    from decimal import Decimal
+
+    async with AsyncSessionLocal() as db:
+        user_res = await db.execute(select(User).where(User.telegram_id == telegram_id))
+        user = user_res.scalar_one_or_none()
+        if not user or user.airdrop_claimed:
+            return False
+
+        count_res = await db.execute(
+            select(func.count(User.id)).where(User.airdrop_claimed == True)
+        )
+        claimed_count = count_res.scalar_one() or 0
+        if claimed_count >= AIRDROP_LIMIT:
+            return False
+
+        user.airdrop_claimed = True
+        user.bonus_balance += Decimal(AIRDROP_AMOUNT)
+        db.add(Transaction(
+            user_id=user.id,
+            type=TransactionType.AIRDROP,
+            amount=Decimal(AIRDROP_AMOUNT),
+            balance_before=user.bonus_balance - Decimal(AIRDROP_AMOUNT),
+            balance_after=user.bonus_balance,
+            description=f"Airdrop bonus — first {AIRDROP_LIMIT} users",
+        ))
+        await db.commit()
+        return True
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "⚡ Welcome to Quiz Star!\nAnswer fast, win big!",
-        reply_markup=_main_keyboard(),
-    )
+    tg_id = update.effective_user.id
+    granted = await _try_grant_airdrop(tg_id)
+
+    if granted:
+        await update.message.reply_text(
+            "🎁 Welcome bonus!\n"
+            f"500💎 contest credits added!\n"
+            "Use them to compete and win real TON!",
+            reply_markup=_main_keyboard(),
+        )
+    else:
+        await update.message.reply_text(
+            "⚡ Welcome to Quiz Star!\nAnswer fast, win big!",
+            reply_markup=_main_keyboard(),
+        )
 
 
 

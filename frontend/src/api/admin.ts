@@ -64,6 +64,8 @@ export interface FinancialData {
   monthly_bonus_balance: number
   admin_profit_balance: number
   master_wallet_configured: boolean
+  airdrop_claimed_count: number
+  airdrop_limit: number
 }
 
 export interface AdminWithdrawal {

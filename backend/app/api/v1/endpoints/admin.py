@@ -645,6 +645,8 @@ class FinancialsOut(BaseModel):
     monthly_bonus_balance: Decimal
     admin_profit_balance: Decimal
     master_wallet_configured: bool
+    airdrop_claimed_count: int
+    airdrop_limit: int
 
 
 @router.get("/financials", response_model=FinancialsOut)
@@ -655,6 +657,11 @@ async def get_financials(
     result = await db.execute(select(SystemFunds).where(SystemFunds.id == 1))
     funds = result.scalar_one_or_none()
     zero = Decimal("0.00")
+    airdrop_res = await db.execute(
+        select(func.count(User.id)).where(User.airdrop_claimed == True)
+    )
+    airdrop_count = airdrop_res.scalar_one() or 0
+    from app.bot.application import AIRDROP_LIMIT
     return FinancialsOut(
         total_revenue=funds.total_revenue if funds else zero,
         prize_pool_balance=funds.prize_pool_balance if funds else zero,
@@ -663,6 +670,8 @@ async def get_financials(
         monthly_bonus_balance=funds.monthly_bonus_balance if funds else zero,
         admin_profit_balance=funds.admin_profit_balance if funds else zero,
         master_wallet_configured=bool(settings.MASTER_ADMIN_WALLET),
+        airdrop_claimed_count=airdrop_count,
+        airdrop_limit=AIRDROP_LIMIT,
     )
 
 

@@ -14,6 +14,7 @@ class TransactionType(str, enum.Enum):
     REFERRAL_BONUS = "referral_bonus"
     JACKPOT = "jackpot"
     MONTHLY_BONUS = "monthly_bonus"
+    AIRDROP = "airdrop"
 
 
 class Transaction(Base, TimestampMixin):

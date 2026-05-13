@@ -97,7 +97,7 @@ async def withdraw(
         )
     wallet = _validate_ton_address(body.wallet_address)
     if current_user.balance < Decimal(body.amount_gems):
-        raise HTTPException(status_code=400, detail="Insufficient balance")
+        raise HTTPException(status_code=400, detail="Insufficient balance (bonus credits cannot be withdrawn)")
 
     # Check no pending withdrawal already exists
     pending_res = await db.execute(
